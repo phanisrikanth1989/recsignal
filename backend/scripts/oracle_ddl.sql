@@ -46,8 +46,20 @@ CREATE TABLE recsignal_metrics_latest (
     host_id           NUMBER         NOT NULL UNIQUE,
     cpu_percent       NUMBER(5,2),
     memory_percent    NUMBER(5,2),
+    swap_percent      NUMBER(5,2),
     disk_percent_total NUMBER(5,2),
     load_avg_1m       NUMBER(8,4),
+    disk_read_bytes_sec  NUMBER(14,2),
+    disk_write_bytes_sec NUMBER(14,2),
+    disk_read_iops    NUMBER(10,2),
+    disk_write_iops   NUMBER(10,2),
+    net_bytes_sent_sec NUMBER(14,2),
+    net_bytes_recv_sec NUMBER(14,2),
+    open_fds          NUMBER(10),
+    max_fds           NUMBER(10),
+    process_count     NUMBER(10),
+    zombie_count      NUMBER(10),
+    boot_time         TIMESTAMP,
     status            VARCHAR2(20)   DEFAULT 'unknown' NOT NULL,
     last_heartbeat_at TIMESTAMP,
     collected_at      TIMESTAMP,
@@ -62,8 +74,20 @@ CREATE TABLE recsignal_metrics_history (
     host_id           NUMBER         NOT NULL,
     cpu_percent       NUMBER(5,2),
     memory_percent    NUMBER(5,2),
+    swap_percent      NUMBER(5,2),
     disk_percent_total NUMBER(5,2),
     load_avg_1m       NUMBER(8,4),
+    disk_read_bytes_sec  NUMBER(14,2),
+    disk_write_bytes_sec NUMBER(14,2),
+    disk_read_iops    NUMBER(10,2),
+    disk_write_iops   NUMBER(10,2),
+    net_bytes_sent_sec NUMBER(14,2),
+    net_bytes_recv_sec NUMBER(14,2),
+    open_fds          NUMBER(10),
+    max_fds           NUMBER(10),
+    process_count     NUMBER(10),
+    zombie_count      NUMBER(10),
+    boot_time         TIMESTAMP,
     collected_at      TIMESTAMP      NOT NULL,
     created_at        TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT recsignal_fk_mh_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
@@ -79,6 +103,9 @@ CREATE TABLE recsignal_mount_metrics (
     total_gb     NUMBER(14,2),
     used_gb      NUMBER(14,2),
     used_percent NUMBER(5,2),
+    inode_total  NUMBER(14),
+    inode_used   NUMBER(14),
+    inode_percent NUMBER(5,2),
     collected_at TIMESTAMP      NOT NULL,
     created_at   TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     CONSTRAINT recsignal_fk_mm_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
@@ -86,7 +113,24 @@ CREATE TABLE recsignal_mount_metrics (
 
 CREATE INDEX recsignal_idx_mm_host_time ON recsignal_mount_metrics (host_id, collected_at DESC);
 
--- 7. ALERTS (FK → hosts)
+-- 7. PROCESS_SNAPSHOTS (FK → hosts)
+CREATE TABLE recsignal_process_snapshots (
+    id           NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host_id      NUMBER         NOT NULL,
+    pid          NUMBER(10)     NOT NULL,
+    name         VARCHAR2(256)  NOT NULL,
+    username     VARCHAR2(128),
+    cpu_percent  NUMBER(6,1),
+    memory_percent NUMBER(6,1),
+    status       VARCHAR2(32),
+    collected_at TIMESTAMP      NOT NULL,
+    created_at   TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT recsignal_fk_ps_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
+);
+
+CREATE INDEX recsignal_idx_ps_host_time ON recsignal_process_snapshots (host_id, collected_at DESC);
+
+-- 8. ALERTS (FK → hosts)
 CREATE TABLE recsignal_alerts (
     id           NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     host_id      NUMBER         NOT NULL,

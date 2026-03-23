@@ -75,7 +75,7 @@ def generate_metric_value(base: float = 50, spike_chance: float = 0.15) -> float
 
 
 def generate_mounts() -> list[dict]:
-    """Generate random mount usage data."""
+    """Generate random mount usage data with inode info."""
     num_mounts = random.randint(6, 12)
     selected = random.sample(MOUNT_PATHS, min(num_mounts, len(MOUNT_PATHS)))
     mounts = []
@@ -83,24 +83,105 @@ def generate_mounts() -> list[dict]:
         total = random.choice([50, 100, 200, 500])
         used_pct = generate_metric_value(base=60, spike_chance=0.1)
         used = round(total * used_pct / 100, 2)
+        inode_total = random.choice([500000, 1000000, 2000000, 5000000])
+        inode_pct = generate_metric_value(base=30, spike_chance=0.05)
+        inode_used = int(inode_total * inode_pct / 100)
         mounts.append({
             "mount_path": mp,
             "total_gb": total,
             "used_gb": used,
             "used_percent": used_pct,
+            "inode_total": inode_total,
+            "inode_used": inode_used,
+            "inode_percent": inode_pct,
         })
     return mounts
 
 
+# Simulated boot time (1-90 days ago)
+_SIM_BOOT_TIME = datetime.now(timezone.utc).replace(
+    hour=3, minute=15, second=0, microsecond=0
+).isoformat()
+
+FAKE_PROCESS_NAMES = [
+    ("java", "appuser"), ("python3", "appuser"), ("nginx", "www-data"),
+    ("postgres", "postgres"), ("node", "appuser"), ("redis-server", "redis"),
+    ("sshd", "root"), ("cron", "root"), ("rsyslogd", "syslog"),
+    ("systemd", "root"), ("kworker/0:1", "root"), ("kworker/1:0", "root"),
+    ("bash", "appuser"), ("top", "appuser"), ("sleep", "root"),
+    ("httpd", "apache"), ("mongod", "mongod"), ("dockerd", "root"),
+    ("containerd", "root"), ("kubelet", "root"), ("etcd", "etcd"),
+    ("mysqld", "mysql"), ("beam.smp", "rabbitmq"), ("supervisord", "root"),
+]
+
+
+def generate_processes(process_count: int, zombie_count: int) -> list[dict]:
+    """Generate a fake process list with the given counts."""
+    procs: list[dict] = []
+    used_pids: set[int] = set()
+
+    # Generate zombie processes first
+    for _ in range(zombie_count):
+        pid = random.randint(1000, 65000)
+        while pid in used_pids:
+            pid = random.randint(1000, 65000)
+        used_pids.add(pid)
+        name = random.choice(["defunct", "zombie_worker", "old_task"])
+        procs.append({
+            "pid": pid,
+            "name": f"[{name}]",
+            "username": "root",
+            "cpu_percent": 0.0,
+            "memory_percent": 0.0,
+            "status": "zombie",
+        })
+
+    # Fill remaining with normal processes
+    normal_count = min(process_count, 50) - zombie_count
+    for _ in range(max(0, normal_count)):
+        pid = random.randint(1, 65000)
+        while pid in used_pids:
+            pid = random.randint(1, 65000)
+        used_pids.add(pid)
+        name, user = random.choice(FAKE_PROCESS_NAMES)
+        status = random.choice(["running", "sleeping", "sleeping", "sleeping"])
+        procs.append({
+            "pid": pid,
+            "name": name,
+            "username": user,
+            "cpu_percent": round(random.uniform(0, 40), 1),
+            "memory_percent": round(random.uniform(0, 15), 1),
+            "status": status,
+        })
+
+    procs.sort(key=lambda p: p["cpu_percent"], reverse=True)
+    return procs
+
+
 def build_payload(host_info: dict) -> dict:
+    process_count = random.randint(100, 800)
+    zombie_count = random.choice([0, 0, 0, 0, 0, 1, 2])
     return {
         "hostname": host_info["hostname"],
         "ip_address": host_info["ip_address"],
         "environment": host_info["environment"],
         "cpu_percent": generate_metric_value(base=45),
         "memory_percent": generate_metric_value(base=55),
+        "swap_percent": generate_metric_value(base=20, spike_chance=0.08),
         "disk_percent_total": generate_metric_value(base=60),
         "load_avg_1m": round(random.uniform(0.1, 4.0), 4),
+        "disk_read_bytes_sec": round(random.uniform(0, 200_000_000), 2),
+        "disk_write_bytes_sec": round(random.uniform(0, 150_000_000), 2),
+        "disk_read_iops": round(random.uniform(0, 5000), 2),
+        "disk_write_iops": round(random.uniform(0, 4000), 2),
+        "net_bytes_sent_sec": round(random.uniform(0, 125_000_000), 2),
+        "net_bytes_recv_sec": round(random.uniform(0, 125_000_000), 2),
+        "open_fds": random.randint(50, 2000),
+        "max_fds": 65536,
+        "process_count": process_count,
+        "zombie_count": zombie_count,
+        "boot_time": _SIM_BOOT_TIME,
+        "processes": generate_processes(process_count, zombie_count),
         "mounts": generate_mounts(),
         "collected_at": datetime.now(timezone.utc).isoformat(),
     }

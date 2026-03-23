@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.models.metrics_latest import MetricsLatest
 from app.models.metrics_history import MetricsHistory
 from app.models.mount_metric import MountMetric
+from app.models.process_snapshot import ProcessSnapshot
 from app.schemas.agent import AgentMetricsPayload
 from app.utils.datetime_utils import utc_now
 
@@ -20,8 +21,20 @@ def upsert_latest_metrics(db: Session, host_id: int, payload: AgentMetricsPayloa
     if latest:
         latest.cpu_percent = payload.cpu_percent
         latest.memory_percent = payload.memory_percent
+        latest.swap_percent = payload.swap_percent
         latest.disk_percent_total = payload.disk_percent_total
         latest.load_avg_1m = payload.load_avg_1m
+        latest.disk_read_bytes_sec = payload.disk_read_bytes_sec
+        latest.disk_write_bytes_sec = payload.disk_write_bytes_sec
+        latest.disk_read_iops = payload.disk_read_iops
+        latest.disk_write_iops = payload.disk_write_iops
+        latest.net_bytes_sent_sec = payload.net_bytes_sent_sec
+        latest.net_bytes_recv_sec = payload.net_bytes_recv_sec
+        latest.open_fds = payload.open_fds
+        latest.max_fds = payload.max_fds
+        latest.process_count = payload.process_count
+        latest.zombie_count = payload.zombie_count
+        latest.boot_time = payload.boot_time
         latest.status = status
         latest.last_heartbeat_at = now
         latest.collected_at = payload.collected_at
@@ -31,8 +44,20 @@ def upsert_latest_metrics(db: Session, host_id: int, payload: AgentMetricsPayloa
             host_id=host_id,
             cpu_percent=payload.cpu_percent,
             memory_percent=payload.memory_percent,
+            swap_percent=payload.swap_percent,
             disk_percent_total=payload.disk_percent_total,
             load_avg_1m=payload.load_avg_1m,
+            disk_read_bytes_sec=payload.disk_read_bytes_sec,
+            disk_write_bytes_sec=payload.disk_write_bytes_sec,
+            disk_read_iops=payload.disk_read_iops,
+            disk_write_iops=payload.disk_write_iops,
+            net_bytes_sent_sec=payload.net_bytes_sent_sec,
+            net_bytes_recv_sec=payload.net_bytes_recv_sec,
+            open_fds=payload.open_fds,
+            max_fds=payload.max_fds,
+            process_count=payload.process_count,
+            zombie_count=payload.zombie_count,
+            boot_time=payload.boot_time,
             status=status,
             last_heartbeat_at=now,
             collected_at=payload.collected_at,
@@ -48,8 +73,20 @@ def insert_history(db: Session, host_id: int, payload: AgentMetricsPayload) -> M
         host_id=host_id,
         cpu_percent=payload.cpu_percent,
         memory_percent=payload.memory_percent,
+        swap_percent=payload.swap_percent,
         disk_percent_total=payload.disk_percent_total,
         load_avg_1m=payload.load_avg_1m,
+        disk_read_bytes_sec=payload.disk_read_bytes_sec,
+        disk_write_bytes_sec=payload.disk_write_bytes_sec,
+        disk_read_iops=payload.disk_read_iops,
+        disk_write_iops=payload.disk_write_iops,
+        net_bytes_sent_sec=payload.net_bytes_sent_sec,
+        net_bytes_recv_sec=payload.net_bytes_recv_sec,
+        open_fds=payload.open_fds,
+        max_fds=payload.max_fds,
+        process_count=payload.process_count,
+        zombie_count=payload.zombie_count,
+        boot_time=payload.boot_time,
         collected_at=payload.collected_at,
     )
     db.add(row)
@@ -67,12 +104,36 @@ def insert_mount_metrics(db: Session, host_id: int, payload: AgentMetricsPayload
             total_gb=m.total_gb,
             used_gb=m.used_gb,
             used_percent=m.used_percent,
+            inode_total=m.inode_total,
+            inode_used=m.inode_used,
+            inode_percent=m.inode_percent,
             collected_at=payload.collected_at,
         )
         db.add(row)
         rows.append(row)
     db.flush()
     return rows
+
+
+def insert_process_snapshots(db: Session, host_id: int, payload: AgentMetricsPayload) -> int:
+    """Replace the latest process snapshot for a host."""
+    if not payload.processes:
+        return 0
+    # Delete previous snapshot
+    db.query(ProcessSnapshot).filter(ProcessSnapshot.host_id == host_id).delete()
+    for p in payload.processes:
+        db.add(ProcessSnapshot(
+            host_id=host_id,
+            pid=p.pid,
+            name=p.name,
+            username=p.username,
+            cpu_percent=p.cpu_percent,
+            memory_percent=p.memory_percent,
+            status=p.status,
+            collected_at=payload.collected_at,
+        ))
+    db.flush()
+    return len(payload.processes)
 
 
 def get_latest_metrics(db: Session, host_id: int) -> MetricsLatest | None:

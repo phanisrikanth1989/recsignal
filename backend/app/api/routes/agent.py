@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.core.security import verify_api_key
 from app.schemas.agent import AgentMetricsPayload, AgentMetricsResponse
 from app.services.host_service import get_or_create_host
-from app.services.metrics_service import upsert_latest_metrics, insert_history, insert_mount_metrics
+from app.services.metrics_service import upsert_latest_metrics, insert_history, insert_mount_metrics, insert_process_snapshots
 from app.services.alert_service import evaluate_alerts, get_open_alerts_for_host
 from app.services.notification_service import send_alert_email
 from app.utils.status import compute_host_status
@@ -44,6 +44,7 @@ def ingest_metrics(
     upsert_latest_metrics(db, host.id, payload, status=status)
     insert_history(db, host.id, payload)
     insert_mount_metrics(db, host.id, payload)
+    insert_process_snapshots(db, host.id, payload)
 
     # 4. Send emails for new alerts
     for alert in new_alerts:
