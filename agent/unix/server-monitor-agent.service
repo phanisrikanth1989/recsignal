@@ -1,0 +1,18 @@
+[Unit]
+Description=RecSignal Server Monitor Agent
+After=network.target
+
+[Service]
+Type=simple
+User=recsignal
+Group=recsignal
+WorkingDirectory=/opt/recsignal-agent
+ExecStart=/opt/recsignal-agent/venv/bin/python agent.py
+Restart=always
+RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=recsignal-agent
+
+[Install]
+WantedBy=multi-user.target

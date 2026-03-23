@@ -1,0 +1,35 @@
+# RecSignal Agent Configuration
+backend_url: "http://localhost:8000/api/agent/metrics"
+api_key: "sample-secret-key"
+environment: "prod"
+interval_seconds: 900  # 15 minutes
+mounts_include:
+  - /dev
+  - /dev/shm
+  - /run
+  - /sys/fs/cgroup
+  - /
+  - /opt
+  - /var
+  - /tmp
+  - /home
+  - /var/crash
+  - /archivelog
+  - /opt/middleware
+  - /oraredolog
+  - /dumps
+  - /boot
+  - /optware
+  - /dumps_1
+  - /data01
+  - /oradata
+  - /opt/rectify_archives9
+  - /opt/rectify_archives2
+  - /opt/rectify_archives10
+  - /opt/rectify_archives
+  - /opt/rectify_archives14
+  - /opt/rectify_archives3
+  - /opt/rectify_archives11
+  - /opt/rectify_archives15
+  - /opt/rectify_archives12
+log_file: "/var/log/recsignal-agent.log"
