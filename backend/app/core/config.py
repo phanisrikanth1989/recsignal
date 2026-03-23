@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     API_PREFIX: str = "/api"
-    ALLOWED_ORIGINS: str = "http://localhost:5173"
+    ALLOWED_ORIGINS: str = "http://localhost:8080"
 
     # Database (SQLite for local dev, can swap to Oracle/Postgres later)
     DATABASE_URL: str = "sqlite:///./recsignal.db"
