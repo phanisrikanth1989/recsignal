@@ -8,7 +8,7 @@ from app.db.base import Base
 
 
 class Host(Base):
-    __tablename__ = "hosts"
+    __tablename__ = "recsignal_hosts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     hostname: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)

@@ -8,10 +8,10 @@ from app.db.base import Base
 
 
 class MountMetric(Base):
-    __tablename__ = "mount_metrics"
+    __tablename__ = "recsignal_mount_metrics"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("hosts.id"), nullable=False)
+    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("recsignal_hosts.id"), nullable=False)
     mount_path: Mapped[str] = mapped_column(String(512), nullable=False)
     total_gb: Mapped[float | None] = mapped_column(Numeric(14, 2))
     used_gb: Mapped[float | None] = mapped_column(Numeric(14, 2))
@@ -20,5 +20,5 @@ class MountMetric(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_mm_host_time", "host_id", collected_at.desc()),
+        Index("recsignal_idx_mm_host_time", "host_id", collected_at.desc()),
     )

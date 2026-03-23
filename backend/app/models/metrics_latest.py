@@ -8,10 +8,10 @@ from app.db.base import Base
 
 
 class MetricsLatest(Base):
-    __tablename__ = "metrics_latest"
+    __tablename__ = "recsignal_metrics_latest"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("hosts.id"), unique=True, nullable=False)
+    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("recsignal_hosts.id"), unique=True, nullable=False)
     cpu_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
     memory_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
     disk_percent_total: Mapped[float | None] = mapped_column(Numeric(5, 2))

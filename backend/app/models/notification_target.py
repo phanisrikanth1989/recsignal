@@ -8,7 +8,7 @@ from app.db.base import Base
 
 
 class NotificationTarget(Base):
-    __tablename__ = "notification_targets"
+    __tablename__ = "recsignal_notification_targets"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     support_group: Mapped[str] = mapped_column(String(128), nullable=False)

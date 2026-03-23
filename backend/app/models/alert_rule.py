@@ -8,7 +8,7 @@ from app.db.base import Base
 
 
 class AlertRule(Base):
-    __tablename__ = "alert_rules"
+    __tablename__ = "recsignal_alert_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     rule_name: Mapped[str] = mapped_column(String(128), nullable=False)

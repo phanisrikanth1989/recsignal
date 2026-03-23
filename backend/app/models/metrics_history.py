@@ -8,10 +8,10 @@ from app.db.base import Base
 
 
 class MetricsHistory(Base):
-    __tablename__ = "metrics_history"
+    __tablename__ = "recsignal_metrics_history"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("hosts.id"), nullable=False)
+    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("recsignal_hosts.id"), nullable=False)
     cpu_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
     memory_percent: Mapped[float | None] = mapped_column(Numeric(5, 2))
     disk_percent_total: Mapped[float | None] = mapped_column(Numeric(5, 2))
@@ -20,5 +20,5 @@ class MetricsHistory(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     __table_args__ = (
-        Index("idx_mh_host_time", "host_id", collected_at.desc()),
+        Index("recsignal_idx_mh_host_time", "host_id", collected_at.desc()),
     )

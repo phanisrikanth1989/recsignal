@@ -8,10 +8,10 @@ from app.db.base import Base
 
 
 class Alert(Base):
-    __tablename__ = "alerts"
+    __tablename__ = "recsignal_alerts"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("hosts.id"), nullable=False)
+    host_id: Mapped[int] = mapped_column(Integer, ForeignKey("recsignal_hosts.id"), nullable=False)
     alert_key: Mapped[str] = mapped_column(String(512), nullable=False)
     metric_name: Mapped[str] = mapped_column(String(64), nullable=False)
     mount_path: Mapped[str | None] = mapped_column(String(512))
@@ -25,7 +25,7 @@ class Alert(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
 
     __table_args__ = (
-        Index("idx_alerts_host_time", "host_id", created_at.desc()),
-        Index("idx_alerts_key", "alert_key"),
-        Index("idx_alerts_status", "status"),
+        Index("recsignal_idx_alerts_host_time", "host_id", created_at.desc()),
+        Index("recsignal_idx_alerts_key", "alert_key"),
+        Index("recsignal_idx_alerts_status", "status"),
     )

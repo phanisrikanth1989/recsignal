@@ -4,7 +4,7 @@
 -- ============================================================
 
 -- 1. HOSTS (no FK dependencies)
-CREATE TABLE hosts (
+CREATE TABLE recsignal_hosts (
     id            NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     hostname      VARCHAR2(255)  NOT NULL UNIQUE,
     ip_address    VARCHAR2(45),
@@ -17,7 +17,7 @@ CREATE TABLE hosts (
 );
 
 -- 2. ALERT_RULES (no FK dependencies)
-CREATE TABLE alert_rules (
+CREATE TABLE recsignal_alert_rules (
     id              NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     rule_name       VARCHAR2(128)  NOT NULL,
     metric_name     VARCHAR2(64)   NOT NULL,
@@ -31,7 +31,7 @@ CREATE TABLE alert_rules (
 );
 
 -- 3. NOTIFICATION_TARGETS (no FK dependencies)
-CREATE TABLE notification_targets (
+CREATE TABLE recsignal_notification_targets (
     id            NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     support_group VARCHAR2(128)  NOT NULL,
     email_to      VARCHAR2(512)  NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE notification_targets (
 );
 
 -- 4. METRICS_LATEST (FK → hosts)
-CREATE TABLE metrics_latest (
+CREATE TABLE recsignal_metrics_latest (
     id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     host_id           NUMBER         NOT NULL UNIQUE,
     cpu_percent       NUMBER(5,2),
@@ -53,11 +53,11 @@ CREATE TABLE metrics_latest (
     collected_at      TIMESTAMP,
     created_at        TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     updated_at        TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
-    CONSTRAINT fk_ml_host FOREIGN KEY (host_id) REFERENCES hosts (id)
+    CONSTRAINT recsignal_fk_ml_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
 );
 
 -- 5. METRICS_HISTORY (FK → hosts)
-CREATE TABLE metrics_history (
+CREATE TABLE recsignal_metrics_history (
     id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     host_id           NUMBER         NOT NULL,
     cpu_percent       NUMBER(5,2),
@@ -66,13 +66,13 @@ CREATE TABLE metrics_history (
     load_avg_1m       NUMBER(8,4),
     collected_at      TIMESTAMP      NOT NULL,
     created_at        TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
-    CONSTRAINT fk_mh_host FOREIGN KEY (host_id) REFERENCES hosts (id)
+    CONSTRAINT recsignal_fk_mh_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
 );
 
-CREATE INDEX idx_mh_host_time ON metrics_history (host_id, collected_at DESC);
+CREATE INDEX recsignal_idx_mh_host_time ON recsignal_metrics_history (host_id, collected_at DESC);
 
 -- 6. MOUNT_METRICS (FK → hosts)
-CREATE TABLE mount_metrics (
+CREATE TABLE recsignal_mount_metrics (
     id           NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     host_id      NUMBER         NOT NULL,
     mount_path   VARCHAR2(512)  NOT NULL,
@@ -81,13 +81,13 @@ CREATE TABLE mount_metrics (
     used_percent NUMBER(5,2),
     collected_at TIMESTAMP      NOT NULL,
     created_at   TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
-    CONSTRAINT fk_mm_host FOREIGN KEY (host_id) REFERENCES hosts (id)
+    CONSTRAINT recsignal_fk_mm_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
 );
 
-CREATE INDEX idx_mm_host_time ON mount_metrics (host_id, collected_at DESC);
+CREATE INDEX recsignal_idx_mm_host_time ON recsignal_mount_metrics (host_id, collected_at DESC);
 
 -- 7. ALERTS (FK → hosts)
-CREATE TABLE alerts (
+CREATE TABLE recsignal_alerts (
     id           NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     host_id      NUMBER         NOT NULL,
     alert_key    VARCHAR2(512)  NOT NULL,
@@ -101,26 +101,26 @@ CREATE TABLE alerts (
     email_sent   NUMBER(1)      DEFAULT 0 NOT NULL,
     created_at   TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
     updated_at   TIMESTAMP      DEFAULT SYSTIMESTAMP NOT NULL,
-    CONSTRAINT fk_alert_host FOREIGN KEY (host_id) REFERENCES hosts (id)
+    CONSTRAINT recsignal_fk_alert_host FOREIGN KEY (host_id) REFERENCES recsignal_hosts (id)
 );
 
-CREATE INDEX idx_alerts_host_time ON alerts (host_id, created_at DESC);
-CREATE INDEX idx_alerts_key ON alerts (alert_key);
-CREATE INDEX idx_alerts_status ON alerts (status);
+CREATE INDEX recsignal_idx_alerts_host_time ON recsignal_alerts (host_id, created_at DESC);
+CREATE INDEX recsignal_idx_alerts_key ON recsignal_alerts (alert_key);
+CREATE INDEX recsignal_idx_alerts_status ON recsignal_alerts (status);
 
 -- ============================================================
 -- Seed Data (default alert rules + notification target)
 -- ============================================================
 
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('CPU Warning', 'cpu_percent', '>', 85, 'WARNING');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('CPU Critical', 'cpu_percent', '>', 95, 'CRITICAL');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Memory Warning', 'memory_percent', '>', 85, 'WARNING');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Memory Critical', 'memory_percent', '>', 95, 'CRITICAL');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Disk Warning', 'disk_percent_total', '>', 85, 'WARNING');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Disk Critical', 'disk_percent_total', '>', 95, 'CRITICAL');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Mount Warning', 'mount_used_percent', '>', 85, 'WARNING');
-INSERT INTO alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Mount Critical', 'mount_used_percent', '>', 95, 'CRITICAL');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('CPU Warning', 'cpu_percent', '>', 85, 'WARNING');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('CPU Critical', 'cpu_percent', '>', 95, 'CRITICAL');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Memory Warning', 'memory_percent', '>', 85, 'WARNING');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Memory Critical', 'memory_percent', '>', 95, 'CRITICAL');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Disk Warning', 'disk_percent_total', '>', 85, 'WARNING');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Disk Critical', 'disk_percent_total', '>', 95, 'CRITICAL');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Mount Warning', 'mount_used_percent', '>', 85, 'WARNING');
+INSERT INTO recsignal_alert_rules (rule_name, metric_name, operator, threshold_value, severity) VALUES ('Mount Critical', 'mount_used_percent', '>', 95, 'CRITICAL');
 
-INSERT INTO notification_targets (support_group, email_to) VALUES ('default', 'ops-team@example.com');
+INSERT INTO recsignal_notification_targets (support_group, email_to) VALUES ('default', 'ops-team@example.com');
 
 COMMIT;
