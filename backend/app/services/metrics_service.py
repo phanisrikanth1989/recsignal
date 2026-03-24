@@ -13,6 +13,9 @@ from app.utils.datetime_utils import utc_now
 
 logger = logging.getLogger(__name__)
 
+# In-memory tracker: last history write time per host_id
+_last_history_write: dict[int, datetime] = {}
+
 
 def upsert_latest_metrics(db: Session, host_id: int, payload: AgentMetricsPayload, status: str = "healthy") -> MetricsLatest:
     """Insert or update the latest metrics row for a host."""
@@ -91,6 +94,25 @@ def insert_history(db: Session, host_id: int, payload: AgentMetricsPayload) -> M
     )
     db.add(row)
     db.flush()
+    return row
+
+
+def insert_history_if_due(
+    db: Session, host_id: int, payload: AgentMetricsPayload, interval_seconds: int = 300
+) -> MetricsHistory | None:
+    """Write to metrics_history only if enough time has passed since last write.
+
+    With live 10-second ingestion, we downsample history writes to avoid
+    database bloat. Default: one history row every 5 minutes.
+    """
+    now = utc_now()
+    last_write = _last_history_write.get(host_id)
+    if last_write is not None:
+        elapsed = (now - last_write).total_seconds()
+        if elapsed < interval_seconds:
+            return None  # Skip — not due yet
+    row = insert_history(db, host_id, payload)
+    _last_history_write[host_id] = now
     return row
 
 

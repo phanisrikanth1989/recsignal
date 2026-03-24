@@ -2,7 +2,7 @@
 """
 RecSignal Unix Server Monitoring Agent
 
-Collects system metrics and sends them to the backend every 15 minutes.
+Collects system metrics and sends them to the backend every 10 seconds (live monitoring).
 """
 
 from __future__ import annotations
@@ -48,7 +48,7 @@ def main():
     backend_url = config["backend_url"]
     api_key = config.get("api_key")
     environment = config.get("environment", "prod")
-    interval = config.get("interval_seconds", 900)  # 15 minutes default
+    interval = config.get("interval_seconds", 10)  # 10 seconds default (live monitoring)
     mounts_include = config.get("mounts_include", ["/"])
 
     logger.info("RecSignal Agent starting (interval=%ds, backend=%s)", interval, backend_url)

@@ -31,7 +31,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "recsignal-dev-secret-change-in-prod"
 
     # Monitoring
-    STALE_THRESHOLD_MINUTES: int = 20
+    STALE_THRESHOLD_MINUTES: int = 1  # 1 minute for live monitoring
+
+    # History downsampling: only write to metrics_history every N seconds
+    HISTORY_INTERVAL_SECONDS: int = 300  # Write history every 5 minutes
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "extra": "ignore"}
 

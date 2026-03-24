@@ -7,8 +7,8 @@ import './index.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchInterval: 60_000,     // Refresh every 60s
-      staleTime: 30_000,
+      refetchInterval: 30_000,     // Fallback polling every 30s (WebSocket is primary)
+      staleTime: 10_000,
       retry: 2,
     },
   },

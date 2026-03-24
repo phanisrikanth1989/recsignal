@@ -2,7 +2,7 @@
 backend_url: "http://localhost:8000/api/agent/metrics"
 api_key: "sample-secret-key"
 environment: "prod"
-interval_seconds: 900  # 15 minutes
+interval_seconds: 10  # 10 seconds (live monitoring)
 mounts_include:
   - /dev
   - /dev/shm

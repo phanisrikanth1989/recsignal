@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import SummaryCard from '../components/cards/SummaryCard';
 import SeverityBadge from '../components/status/SeverityBadge';
+import { SkeletonCard } from '../components/utils/Skeleton';
+import { TimeAgo } from '../components/utils/TimeAgo';
+import HostHeatmap from '../components/charts/HostHeatmap';
 import { useDashboard } from '../hooks/useDashboard';
 import { useAlerts } from '../hooks/useAlerts';
+import { useHosts } from '../hooks/useHosts';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 const tabs = [
   { key: 'server', label: 'Server Monitor', icon: 'M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2' },
@@ -15,9 +20,20 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabKey>('server');
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useDashboard();
   const { data: alerts } = useAlerts('OPEN');
+  const { data: hosts } = useHosts();
+
+  // Live updates via WebSocket
+  useWebSocket(['dashboard', 'alerts']);
 
   if (summaryLoading) {
-    return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading dashboard...</div>;
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Dashboard</h1>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+          {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      </div>
+    );
   }
 
   if (summaryError) {
@@ -63,6 +79,13 @@ export default function Dashboard() {
             <SummaryCard title="Active Alerts" value={summary?.active_alerts ?? 0} color="orange" to="/alerts?status=OPEN" />
           </div>
 
+          {/* Host Heatmap */}
+          {hosts && hosts.length > 0 && (
+            <div className="mb-8">
+              <HostHeatmap hosts={hosts} />
+            </div>
+          )}
+
           {/* Recent Alerts */}
           <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
@@ -75,9 +98,10 @@ export default function Dashboard() {
                 <div className="space-y-2">
                   {recentAlerts.map((a) => (
                     <div key={a.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                      <div>
+                      <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{a.hostname}</span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">{a.metric_name}</span>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">{a.metric_name}</span>
+                        {a.triggered_at && <TimeAgo timestamp={a.triggered_at} className="text-xs text-gray-400 dark:text-gray-500" />}
                       </div>
                       <SeverityBadge severity={a.severity} />
                     </div>

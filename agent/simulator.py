@@ -215,7 +215,7 @@ def main():
     parser.add_argument("--url", default=BACKEND_URL, help="Backend URL")
     parser.add_argument("--api-key", default=API_KEY, help="API key")
     parser.add_argument("--loop", action="store_true", help="Run continuously")
-    parser.add_argument("--interval", type=int, default=60, help="Seconds between cycles in loop mode")
+    parser.add_argument("--interval", type=int, default=10, help="Seconds between cycles in loop mode (default: 10s for live monitoring)")
     args = parser.parse_args()
 
     num_hosts = min(args.hosts, len(SIMULATED_HOSTS))

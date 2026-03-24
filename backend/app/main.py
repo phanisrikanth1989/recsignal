@@ -9,7 +9,7 @@ from app.core.logging import setup_logging
 from app.core.database import engine
 from app.db.base import Base
 from app.models import *  # noqa: F401,F403  – registers all models with Base
-from app.api.routes import health, version, agent, dashboard, hosts, metrics, alerts, auth
+from app.api.routes import health, version, agent, dashboard, hosts, metrics, alerts, auth, ws
 
 
 def _seed_defaults(eng):
@@ -74,6 +74,7 @@ def create_app() -> FastAPI:
     app.include_router(hosts.router, tags=["Hosts"])
     app.include_router(metrics.router, tags=["Metrics"])
     app.include_router(alerts.router, tags=["Alerts"])
+    app.include_router(ws.router)
 
     return app
 

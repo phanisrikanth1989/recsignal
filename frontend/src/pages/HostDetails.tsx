@@ -1,10 +1,15 @@
 import { useParams } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useHostDetails } from '../hooks/useHostDetails';
 import StatusBadge from '../components/status/StatusBadge';
 import SeverityBadge from '../components/status/SeverityBadge';
 import MetricBar from '../components/charts/MetricBar';
 import ProcessListModal from '../components/modals/ProcessListModal';
+import GaugeChart from '../components/charts/GaugeChart';
+import MetricLineChart from '../components/charts/MetricLineChart';
+import { TimeAgo } from '../components/utils/TimeAgo';
+import { SkeletonChart, SkeletonCard } from '../components/utils/Skeleton';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 function formatTime(ts: string | null | undefined): string {
   if (!ts) return '-';
@@ -39,7 +44,19 @@ export default function HostDetails() {
   const { data: host, isLoading, error } = useHostDetails(id);
   const [processModal, setProcessModal] = useState<'all' | 'zombie' | null>(null);
 
-  if (isLoading) return <div className="text-center py-12 text-gray-500 dark:text-gray-400">Loading host details...</div>;
+  // Live updates via WebSocket for this specific host
+  const wsTopics = useMemo(() => [`host:${id}`, 'alerts'], [id]);
+  useWebSocket(wsTopics);
+
+  if (isLoading) return (
+    <div>
+      <div className="mb-6"><div className="h-8 w-48 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" /></div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+      </div>
+      <SkeletonChart />
+    </div>
+  );
   if (error || !host) return <div className="text-center py-12 text-red-500 dark:text-red-400">Host not found.</div>;
 
   return (
@@ -56,11 +73,27 @@ export default function HostDetails() {
           <div><span className="text-gray-500 dark:text-gray-400">IP Address:</span> <span className="font-medium dark:text-gray-200">{host.ip_address ?? '-'}</span></div>
           <div><span className="text-gray-500 dark:text-gray-400">Environment:</span> <span className="font-medium dark:text-gray-200">{host.environment ?? '-'}</span></div>
           <div><span className="text-gray-500 dark:text-gray-400">Support Group:</span> <span className="font-medium dark:text-gray-200">{host.support_group ?? '-'}</span></div>
-          <div><span className="text-gray-500 dark:text-gray-400">Last Seen:</span> <span className="font-medium dark:text-gray-200">{formatTime(host.last_seen_at)}</span></div>
-          <div><span className="text-gray-500 dark:text-gray-400">Last Heartbeat:</span> <span className="font-medium dark:text-gray-200">{formatTime(host.last_heartbeat_at)}</span></div>
-          <div><span className="text-gray-500 dark:text-gray-400">Metrics At:</span> <span className="font-medium dark:text-gray-200">{formatTime(host.collected_at)}</span></div>
-          <div><span className="text-gray-500 dark:text-gray-400">Registered:</span> <span className="font-medium dark:text-gray-200">{formatTime(host.created_at)}</span></div>
+          <div><span className="text-gray-500 dark:text-gray-400">Last Seen:</span> <span className="font-medium dark:text-gray-200">{host.last_seen_at ? <TimeAgo timestamp={host.last_seen_at} /> : '-'}</span></div>
+          <div><span className="text-gray-500 dark:text-gray-400">Last Heartbeat:</span> <span className="font-medium dark:text-gray-200">{host.last_heartbeat_at ? <TimeAgo timestamp={host.last_heartbeat_at} /> : '-'}</span></div>
+          <div><span className="text-gray-500 dark:text-gray-400">Metrics At:</span> <span className="font-medium dark:text-gray-200">{host.collected_at ? <TimeAgo timestamp={host.collected_at} /> : '-'}</span></div>
+          <div><span className="text-gray-500 dark:text-gray-400">Registered:</span> <span className="font-medium dark:text-gray-200">{host.created_at ? <TimeAgo timestamp={host.created_at} /> : '-'}</span></div>
           <div><span className="text-gray-500 dark:text-gray-400">Active:</span> <span className="font-medium dark:text-gray-200">{host.is_active ? 'Yes' : 'No'}</span></div>
+        </div>
+      </div>
+
+      {/* Gauge Charts */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex flex-col items-center">
+          <GaugeChart value={host.cpu_percent ?? 0} label="CPU" />
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex flex-col items-center">
+          <GaugeChart value={host.memory_percent ?? 0} label="Memory" />
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex flex-col items-center">
+          <GaugeChart value={host.swap_percent ?? 0} label="Swap" />
+        </div>
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-4 flex flex-col items-center">
+          <GaugeChart value={host.disk_percent_total ?? 0} label="Disk" />
         </div>
       </div>
 
@@ -187,36 +220,13 @@ export default function HostDetails() {
         )}
       </div>
 
-      {/* Recent History */}
+      {/* Recent History — Line Chart */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-5 mb-6">
-        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Recent Metric History</h2>
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Metric Trend</h2>
         {host.recent_history.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-sm">No history available.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900/50">
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Time</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">CPU %</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Memory %</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Disk %</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Load 1m</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {host.recent_history.slice(0, 20).map((r, i) => (
-                  <tr key={i} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                    <td className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">{formatTime(r.collected_at)}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{r.cpu_percent?.toFixed(1) ?? '-'}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{r.memory_percent?.toFixed(1) ?? '-'}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{r.disk_percent_total?.toFixed(1) ?? '-'}</td>
-                    <td className="px-4 py-2 text-sm text-gray-700 dark:text-gray-300">{r.load_avg_1m?.toFixed(2) ?? '-'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <MetricLineChart data={host.recent_history} />
         )}
       </div>
 
@@ -231,7 +241,7 @@ export default function HostDetails() {
               <div key={a.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
                 <div>
                   <span className="text-sm text-gray-700 dark:text-gray-300">{a.message}</span>
-                  <span className="text-xs text-gray-400 dark:text-gray-500 ml-2">{formatTime(a.triggered_at)}</span>
+                  {a.triggered_at && <TimeAgo timestamp={a.triggered_at} className="text-xs text-gray-400 dark:text-gray-500 ml-2" />}
                 </div>
                 <SeverityBadge severity={a.severity} />
               </div>
