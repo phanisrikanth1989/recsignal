@@ -26,7 +26,7 @@ interface TimeAgoProps {
   className?: string;
 }
 
-export default function TimeAgo({ date, className = '' }: TimeAgoProps) {
+export function TimeAgo({ date, className = '' }: TimeAgoProps) {
   const [, setTick] = useState(0);
 
   useEffect(() => {

@@ -1,5 +1,3 @@
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-
 interface GaugeChartProps {
   value: number | null | undefined;
   label: string;
@@ -12,44 +10,60 @@ function getColor(value: number): string {
   return '#22c55e';
 }
 
-export default function GaugeChart({ value, label, size = 120 }: GaugeChartProps) {
+export default function GaugeChart({ value, label, size = 140 }: GaugeChartProps) {
   const v = value ?? 0;
   const color = getColor(v);
-  const data = [
-    { value: v },
-    { value: 100 - v },
-  ];
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const strokeWidth = size * 0.12;
+  const radius = (size - strokeWidth) / 2 - 2;
+
+  // Semi-circle arc from 180° to 0° (left to right)
+  const circumference = Math.PI * radius;
+  const filledLength = (v / 100) * circumference;
+  const emptyLength = circumference - filledLength;
 
   return (
-    <div className="flex flex-col items-center">
-      <div style={{ width: size, height: size / 2 + 10 }} className="relative">
-        <ResponsiveContainer width="100%" height={size}>
-          <PieChart>
-            <Pie
-              data={data}
-              cx="50%"
-              cy="100%"
-              startAngle={180}
-              endAngle={0}
-              innerRadius={size * 0.3}
-              outerRadius={size * 0.45}
-              paddingAngle={0}
-              dataKey="value"
-              isAnimationActive={true}
-              animationDuration={600}
-            >
-              <Cell fill={color} />
-              <Cell fill="#e5e7eb" className="dark:fill-gray-700" />
-            </Pie>
-          </PieChart>
-        </ResponsiveContainer>
-        <div className="absolute inset-x-0 bottom-0 text-center">
-          <span className="text-lg font-bold" style={{ color }}>
-            {value != null ? `${value.toFixed(1)}%` : '-'}
-          </span>
-        </div>
-      </div>
-      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 text-center">{label}</p>
+    <div className="flex flex-col items-center" style={{ width: size }}>
+      <svg
+        width={size}
+        height={size / 2 + 12}
+        viewBox={`0 0 ${size} ${size / 2 + 12}`}
+      >
+        {/* Background arc (gray) */}
+        <path
+          d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          className="text-gray-200 dark:text-gray-700"
+        />
+        {/* Filled arc (colored) */}
+        <path
+          d={`M ${cx - radius} ${cy} A ${radius} ${radius} 0 0 1 ${cx + radius} ${cy}`}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={`${filledLength} ${emptyLength}`}
+          style={{ transition: 'stroke-dasharray 0.6s ease' }}
+        />
+        {/* Percentage text */}
+        <text
+          x={cx}
+          y={cy - 4}
+          textAnchor="middle"
+          dominantBaseline="auto"
+          fill={color}
+          fontSize={size * 0.16}
+          fontWeight="bold"
+        >
+          {value != null ? `${value.toFixed(1)}%` : '-'}
+        </text>
+      </svg>
+      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 text-center">{label}</p>
     </div>
   );
 }

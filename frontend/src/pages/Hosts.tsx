@@ -1,9 +1,3 @@
-import { Link, useSearchParams } from 'react-router-dom';
-import { useHosts } from '../hooks/useHosts';
-import StatusBadge from '../components/status/StatusBadge';
-import MetricBar from '../components/charts/MetricBar';
-import { useWebSocket } from '../hooks/useWebSocket';
-
 import { useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useHosts } from '../hooks/useHosts';
@@ -148,9 +142,9 @@ export default function Hosts() {
               <StatusBadge status={h.status} />
             </div>
             <div className="grid grid-cols-3 gap-3 text-xs">
-              <div><span className="text-gray-500 dark:text-gray-400">CPU</span><MetricBar value={h.cpu_percent} /></div>
-              <div><span className="text-gray-500 dark:text-gray-400">Mem</span><MetricBar value={h.memory_percent} /></div>
-              <div><span className="text-gray-500 dark:text-gray-400">Disk</span><MetricBar value={h.disk_percent_total} /></div>
+              <div><span className="block text-gray-500 dark:text-gray-400 mb-1">CPU</span><MetricBar value={h.cpu_percent} /></div>
+              <div><span className="block text-gray-500 dark:text-gray-400 mb-1">Mem</span><MetricBar value={h.memory_percent} /></div>
+              <div><span className="block text-gray-500 dark:text-gray-400 mb-1">Disk</span><MetricBar value={h.disk_percent_total} /></div>
             </div>
             {h.last_heartbeat_at && (
               <div className="mt-2"><TimeAgo timestamp={h.last_heartbeat_at} className="text-xs text-gray-400 dark:text-gray-500" /></div>
@@ -182,9 +176,9 @@ export default function Hosts() {
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{h.hostname}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{h.environment ?? '-'}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{h.ip_address ?? '-'}</td>
-                  <td className="px-4 py-3"><MetricBar value={h.cpu_percent} /></td>
-                  <td className="px-4 py-3"><MetricBar value={h.memory_percent} /></td>
-                  <td className="px-4 py-3"><MetricBar value={h.disk_percent_total} /></td>
+                  <td className="px-4 py-3 min-w-[150px]"><MetricBar value={h.cpu_percent} /></td>
+                  <td className="px-4 py-3 min-w-[150px]"><MetricBar value={h.memory_percent} /></td>
+                  <td className="px-4 py-3 min-w-[150px]"><MetricBar value={h.disk_percent_total} /></td>
                   <td className="px-4 py-3"><StatusBadge status={h.status} /></td>
                   <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                     {h.last_heartbeat_at ? <TimeAgo timestamp={h.last_heartbeat_at} /> : '-'}
