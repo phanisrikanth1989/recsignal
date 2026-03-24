@@ -76,6 +76,27 @@ export function useWebSocket(topics: string[], onMessage?: MessageHandler) {
           // Invalidate to trigger refetch for alerts
           queryClient.invalidateQueries({ queryKey: ['alerts'] });
           queryClient.invalidateQueries({ queryKey: ['dashboard-summary'] });
+        } else if (topic === 'db-monitor-summary') {
+          queryClient.setQueryData(['db-monitor-summary'], data);
+        } else if (topic === 'db-instances') {
+          // Update the specific DB instance in the list cache
+          queryClient.setQueryData<unknown[]>(['db-instances'], (old) => {
+            if (!old) return old;
+            const instData = data as { id: number };
+            const idx = old.findIndex((i: any) => i.id === instData.id);
+            if (idx >= 0) {
+              const updated = [...old];
+              updated[idx] = { ...updated[idx] as object, ...data };
+              return updated;
+            }
+            return [...old, data];
+          });
+        } else if (topic.startsWith('db-instance:')) {
+          const instanceId = parseInt(topic.split(':')[1], 10);
+          queryClient.setQueryData(['db-instance-detail', instanceId], (old: any) => {
+            if (!old) return old;
+            return { ...old, ...data };
+          });
         }
 
         onMessage?.(topic, data);

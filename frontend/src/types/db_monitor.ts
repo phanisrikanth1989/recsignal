@@ -104,3 +104,45 @@ export interface DbMonitorSummary {
   total_active_sessions: number;
   total_tablespace_warnings: number;
 }
+
+export interface TablespaceWarningItem {
+  db_instance_id: number;
+  instance_name: string;
+  tablespace_name: string;
+  used_percent: number;
+  used_mb: number | null;
+  total_mb: number | null;
+  autoextensible: string | null;
+}
+
+export interface CrossInstanceSlowQuery {
+  db_instance_id: number;
+  instance_name: string;
+  sql_id: string | null;
+  sql_text: string | null;
+  username: string | null;
+  elapsed_seconds: number | null;
+  cpu_seconds: number | null;
+  buffer_gets: number | null;
+  executions: number | null;
+}
+
+export interface BlockingSessionItem {
+  db_instance_id: number;
+  instance_name: string;
+  sid: number | null;
+  serial_no: number | null;
+  username: string | null;
+  program: string | null;
+  status: string | null;
+  blocking_session: number | null;
+  wait_event: string | null;
+  seconds_in_wait: number | null;
+  sql_text: string | null;
+}
+
+export interface DbDashboardDetails {
+  tablespace_warnings: TablespaceWarningItem[];
+  top_slow_queries: CrossInstanceSlowQuery[];
+  blocking_sessions: BlockingSessionItem[];
+}

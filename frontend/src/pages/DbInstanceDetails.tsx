@@ -1,5 +1,6 @@
 import { useParams, Link } from 'react-router-dom';
 import { useDbInstanceDetail } from '../hooks/useDbMonitor';
+import { useWebSocket } from '../hooks/useWebSocket';
 import StatusBadge from '../components/status/StatusBadge';
 import MetricBar from '../components/charts/MetricBar';
 import GaugeChart from '../components/charts/GaugeChart';
@@ -28,6 +29,9 @@ export default function DbInstanceDetails() {
   const { instanceId } = useParams();
   const id = instanceId ? parseInt(instanceId, 10) : null;
   const { data: instance, isLoading, error } = useDbInstanceDetail(id);
+
+  // Live updates via WebSocket
+  useWebSocket(id ? [`db-instance:${id}`, 'db-monitor-summary'] : []);
 
   if (isLoading) {
     return (

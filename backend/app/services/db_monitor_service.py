@@ -263,6 +263,89 @@ def get_db_sessions(db: Session, instance_id: int, status_filter: str | None = N
     return query.order_by(DbSessionSnapshot.elapsed_seconds.desc()).all()
 
 
+def get_db_dashboard_details(db: Session) -> dict:
+    """Aggregate dashboard details: top tablespace warnings, slow queries, blocking sessions."""
+    from app.schemas.db_monitor import TablespaceWarningItem, CrossInstanceSlowQuery, BlockingSessionItem
+
+    # Tablespace warnings (> 85% used) across all instances
+    ts_rows = (
+        db.query(TablespaceMetric, DbInstance.instance_name)
+        .join(DbInstance, DbInstance.id == TablespaceMetric.db_instance_id)
+        .filter(TablespaceMetric.used_percent > 85)
+        .order_by(TablespaceMetric.used_percent.desc())
+        .limit(15)
+        .all()
+    )
+    tablespace_warnings = [
+        TablespaceWarningItem(
+            db_instance_id=ts.db_instance_id,
+            instance_name=name,
+            tablespace_name=ts.tablespace_name,
+            used_percent=float(ts.used_percent) if ts.used_percent else 0,
+            used_mb=float(ts.used_mb) if ts.used_mb else None,
+            total_mb=float(ts.total_mb) if ts.total_mb else None,
+            autoextensible=ts.autoextensible,
+        )
+        for ts, name in ts_rows
+    ]
+
+    # Top slow queries across all instances
+    sq_rows = (
+        db.query(DbSlowQuery, DbInstance.instance_name)
+        .join(DbInstance, DbInstance.id == DbSlowQuery.db_instance_id)
+        .order_by(DbSlowQuery.elapsed_seconds.desc())
+        .limit(10)
+        .all()
+    )
+    top_slow_queries = [
+        CrossInstanceSlowQuery(
+            db_instance_id=sq.db_instance_id,
+            instance_name=name,
+            sql_id=sq.sql_id,
+            sql_text=sq.sql_text,
+            username=sq.username,
+            elapsed_seconds=float(sq.elapsed_seconds) if sq.elapsed_seconds else None,
+            cpu_seconds=float(sq.cpu_seconds) if sq.cpu_seconds else None,
+            buffer_gets=sq.buffer_gets,
+            executions=sq.executions,
+        )
+        for sq, name in sq_rows
+    ]
+
+    # Blocking sessions across all instances
+    bs_rows = (
+        db.query(DbSessionSnapshot, DbInstance.instance_name)
+        .join(DbInstance, DbInstance.id == DbSessionSnapshot.db_instance_id)
+        .filter(DbSessionSnapshot.blocking_session.isnot(None))
+        .filter(DbSessionSnapshot.blocking_session > 0)
+        .order_by(DbSessionSnapshot.seconds_in_wait.desc())
+        .limit(20)
+        .all()
+    )
+    blocking_sessions = [
+        BlockingSessionItem(
+            db_instance_id=s.db_instance_id,
+            instance_name=name,
+            sid=s.sid,
+            serial_no=s.serial_no,
+            username=s.username,
+            program=s.program,
+            status=s.status,
+            blocking_session=s.blocking_session,
+            wait_event=s.wait_event,
+            seconds_in_wait=float(s.seconds_in_wait) if s.seconds_in_wait else None,
+            sql_text=s.sql_text,
+        )
+        for s, name in bs_rows
+    ]
+
+    return {
+        "tablespace_warnings": tablespace_warnings,
+        "top_slow_queries": top_slow_queries,
+        "blocking_sessions": blocking_sessions,
+    }
+
+
 def get_db_monitor_summary(db: Session) -> DbMonitorSummary:
     """Build a summary for the DB Monitor dashboard."""
     instances = db.query(DbInstance).filter(DbInstance.is_active == 1).all()

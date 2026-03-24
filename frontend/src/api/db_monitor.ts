@@ -4,6 +4,7 @@ import type {
   DbInstanceListItem,
   DbInstanceDetail,
   DbSessionItem,
+  DbDashboardDetails,
 } from '../types/db_monitor';
 
 export async function fetchDbMonitorSummary(): Promise<DbMonitorSummary> {
@@ -24,5 +25,10 @@ export async function fetchDbInstanceDetail(instanceId: number): Promise<DbInsta
 export async function fetchDbSessions(instanceId: number, status?: string): Promise<DbSessionItem[]> {
   const params = status ? { status } : {};
   const { data } = await apiClient.get<DbSessionItem[]>(`/api/db-monitor/instances/${instanceId}/sessions`, { params });
+  return data;
+}
+
+export async function fetchDbDashboardDetails(): Promise<DbDashboardDetails> {
+  const { data } = await apiClient.get<DbDashboardDetails>('/api/db-monitor/dashboard-details');
   return data;
 }

@@ -4,6 +4,7 @@ import {
   fetchDbInstances,
   fetchDbInstanceDetail,
   fetchDbSessions,
+  fetchDbDashboardDetails,
 } from '../api/db_monitor';
 
 export function useDbMonitorSummary() {
@@ -33,5 +34,12 @@ export function useDbSessions(instanceId: number | null, status?: string) {
     queryKey: ['db-sessions', instanceId, status],
     queryFn: () => fetchDbSessions(instanceId!, status),
     enabled: instanceId !== null,
+  });
+}
+
+export function useDbDashboardDetails() {
+  return useQuery({
+    queryKey: ['db-dashboard-details'],
+    queryFn: fetchDbDashboardDetails,
   });
 }

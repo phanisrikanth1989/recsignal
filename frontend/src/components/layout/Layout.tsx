@@ -9,6 +9,7 @@ import LiveIndicator from '../status/LiveIndicator';
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', shortcut: 'd' },
   { path: '/hosts', label: 'Hosts', shortcut: 'h' },
+  { path: '/db-instances', label: 'DB Instances', shortcut: 'b' },
   { path: '/alerts', label: 'Alerts', shortcut: 'a' },
 ];
 
@@ -17,8 +18,12 @@ function getParentRoute(pathname: string): string | null {
   if (pathname === '/dashboard' || pathname === '/') return null;
   // /hosts/123 → /hosts
   if (/^\/hosts\/\d+/.test(pathname)) return '/hosts';
+  // /db-instances/123 → /db-instances
+  if (/^\/db-instances\/\d+/.test(pathname)) return '/db-instances';
   // /hosts?status=xxx → /dashboard
   if (pathname === '/hosts') return '/dashboard';
+  // /db-instances → /dashboard
+  if (pathname === '/db-instances') return '/dashboard';
   // /alerts → /dashboard
   if (pathname === '/alerts') return '/dashboard';
   return '/dashboard';
@@ -26,7 +31,8 @@ function getParentRoute(pathname: string): string | null {
 
 function getBackLabel(pathname: string): string {
   if (/^\/hosts\/\d+/.test(pathname)) return 'Back to Hosts';
-  if (pathname === '/hosts' || pathname === '/alerts') return 'Back to Dashboard';
+  if (/^\/db-instances\/\d+/.test(pathname)) return 'Back to DB Instances';
+  if (pathname === '/hosts' || pathname === '/alerts' || pathname === '/db-instances') return 'Back to Dashboard';
   return 'Back';
 }
 
@@ -72,6 +78,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       switch (e.key.toLowerCase()) {
         case 'd': navigate('/dashboard'); break;
         case 'h': navigate('/hosts'); break;
+        case 'b': navigate('/db-instances'); break;
         case 'a': navigate('/alerts'); break;
       }
     }

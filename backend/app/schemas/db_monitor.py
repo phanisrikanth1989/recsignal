@@ -133,6 +133,56 @@ class DbMonitorSummary(BaseModel):
     total_tablespace_warnings: int = 0
 
 
+# --- Cross-instance items for dashboard widgets ---
+
+class TablespaceWarningItem(BaseModel):
+    db_instance_id: int
+    instance_name: str
+    tablespace_name: str
+    used_percent: float
+    used_mb: float | None = None
+    total_mb: float | None = None
+    autoextensible: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class CrossInstanceSlowQuery(BaseModel):
+    db_instance_id: int
+    instance_name: str
+    sql_id: str | None = None
+    sql_text: str | None = None
+    username: str | None = None
+    elapsed_seconds: float | None = None
+    cpu_seconds: float | None = None
+    buffer_gets: int | None = None
+    executions: int | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class BlockingSessionItem(BaseModel):
+    db_instance_id: int
+    instance_name: str
+    sid: int | None = None
+    serial_no: int | None = None
+    username: str | None = None
+    program: str | None = None
+    status: str | None = None
+    blocking_session: int | None = None
+    wait_event: str | None = None
+    seconds_in_wait: float | None = None
+    sql_text: str | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class DbDashboardDetails(BaseModel):
+    tablespace_warnings: list[TablespaceWarningItem] = []
+    top_slow_queries: list[CrossInstanceSlowQuery] = []
+    blocking_sessions: list[BlockingSessionItem] = []
+
+
 # --- Agent Ingest Payload ---
 
 class DbAgentTablespace(BaseModel):
