@@ -22,11 +22,11 @@ export function timeAgo(dateStr: string | null | undefined): string {
 import { useState, useEffect } from 'react';
 
 interface TimeAgoProps {
-  date: string | null | undefined;
+  timestamp: string | null | undefined;
   className?: string;
 }
 
-export function TimeAgo({ date, className = '' }: TimeAgoProps) {
+export function TimeAgo({ timestamp, className = '' }: TimeAgoProps) {
   const [, setTick] = useState(0);
 
   useEffect(() => {
@@ -34,11 +34,11 @@ export function TimeAgo({ date, className = '' }: TimeAgoProps) {
     return () => clearInterval(id);
   }, []);
 
-  const full = date ? new Date(date).toLocaleString() : '';
+  const full = timestamp ? new Date(timestamp).toLocaleString() : '';
 
   return (
     <span className={className} title={full}>
-      {timeAgo(date)}
+      {timeAgo(timestamp)}
     </span>
   );
 }

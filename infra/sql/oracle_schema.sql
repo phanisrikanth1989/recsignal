@@ -169,3 +169,119 @@ CREATE TABLE recsignal_notification_targets (
 -- Default notification target
 INSERT INTO recsignal_notification_targets (support_group, email_to) VALUES ('default', 'ops-team@example.com');
 COMMIT;
+
+
+-- ============================================================================
+-- RecSignal - DB Monitor  (Phase 2)
+-- Oracle Database Schema
+-- ============================================================================
+
+-- 9. DB INSTANCES - registered database instances
+CREATE TABLE recsignal_db_instances (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    instance_name     VARCHAR2(255) NOT NULL UNIQUE,
+    db_type           VARCHAR2(32)  DEFAULT 'oracle' NOT NULL,
+    host              VARCHAR2(255),
+    port              NUMBER(5),
+    service_name      VARCHAR2(255),
+    environment       VARCHAR2(64),
+    support_group     VARCHAR2(128),
+    status            VARCHAR2(20)  DEFAULT 'unknown',
+    is_active         NUMBER(1) DEFAULT 1 CHECK (is_active IN (0, 1)),
+    last_seen_at      TIMESTAMP,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_dbi_name ON recsignal_db_instances(instance_name);
+CREATE INDEX recsignal_idx_dbi_env ON recsignal_db_instances(environment);
+
+-- 10. TABLESPACE METRICS - per-tablespace usage snapshots
+CREATE TABLE recsignal_tablespace_metrics (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    db_instance_id    NUMBER NOT NULL REFERENCES recsignal_db_instances(id),
+    tablespace_name   VARCHAR2(128) NOT NULL,
+    total_mb          NUMBER(14,2),
+    used_mb           NUMBER(14,2),
+    free_mb           NUMBER(14,2),
+    used_percent      NUMBER(5,2),
+    autoextensible    VARCHAR2(3),
+    max_mb            NUMBER(14,2),
+    status            VARCHAR2(20),
+    collected_at      TIMESTAMP,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_ts_inst ON recsignal_tablespace_metrics(db_instance_id);
+
+-- 11. DB SESSION SNAPSHOTS - active/inactive Oracle sessions
+CREATE TABLE recsignal_db_sessions (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    db_instance_id    NUMBER NOT NULL REFERENCES recsignal_db_instances(id),
+    sid               NUMBER,
+    serial_no         NUMBER,
+    username          VARCHAR2(128),
+    program           VARCHAR2(255),
+    machine           VARCHAR2(255),
+    status            VARCHAR2(20),
+    sql_id            VARCHAR2(64),
+    sql_text          CLOB,
+    wait_class        VARCHAR2(64),
+    wait_event        VARCHAR2(128),
+    seconds_in_wait   NUMBER(12,2),
+    blocking_session  NUMBER,
+    logon_time        TIMESTAMP,
+    elapsed_seconds   NUMBER(12,2),
+    collected_at      TIMESTAMP,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_sess_inst ON recsignal_db_sessions(db_instance_id);
+
+-- 12. DB PERFORMANCE METRICS - instance-level Oracle stats
+CREATE TABLE recsignal_db_performance (
+    id                     NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    db_instance_id         NUMBER NOT NULL REFERENCES recsignal_db_instances(id),
+    buffer_cache_hit_ratio NUMBER(5,2),
+    library_cache_hit_ratio NUMBER(5,2),
+    parse_count_total      NUMBER,
+    hard_parse_count       NUMBER,
+    execute_count          NUMBER,
+    user_commits           NUMBER,
+    user_rollbacks         NUMBER,
+    physical_reads         NUMBER,
+    physical_writes        NUMBER,
+    redo_size              NUMBER,
+    sga_total_mb           NUMBER(14,2),
+    pga_total_mb           NUMBER(14,2),
+    active_sessions        NUMBER,
+    inactive_sessions      NUMBER,
+    total_sessions         NUMBER,
+    max_sessions           NUMBER,
+    db_uptime_seconds      NUMBER,
+    collected_at           TIMESTAMP,
+    created_at             TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_perf_inst ON recsignal_db_performance(db_instance_id);
+
+-- 13. DB SLOW QUERIES - top resource-consuming SQL
+CREATE TABLE recsignal_db_slow_queries (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    db_instance_id    NUMBER NOT NULL REFERENCES recsignal_db_instances(id),
+    sql_id            VARCHAR2(64),
+    sql_text          CLOB,
+    username          VARCHAR2(128),
+    elapsed_seconds   NUMBER(14,2),
+    cpu_seconds       NUMBER(14,2),
+    buffer_gets       NUMBER,
+    disk_reads        NUMBER,
+    rows_processed    NUMBER,
+    executions        NUMBER,
+    plan_hash_value   VARCHAR2(64),
+    collected_at      TIMESTAMP,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_sq_inst ON recsignal_db_slow_queries(db_instance_id);
+CREATE INDEX recsignal_idx_sq_elapsed ON recsignal_db_slow_queries(elapsed_seconds DESC);
