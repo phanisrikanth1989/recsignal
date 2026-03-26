@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import subprocess
 import sys
 import time
 from datetime import datetime, timezone
@@ -30,21 +31,102 @@ def load_config(config_path: str | None = None) -> dict:
     if config_path is None:
         config_path = os.path.join(os.path.dirname(__file__), "config", "db_config.yaml")
     with open(config_path) as f:
-        return yaml.safe_load(f)
+        cfg = yaml.safe_load(f)
+
+    # Resolve db_instances from the pipe-delimited file
+    instances_file = cfg.get("db_instances_file")
+    if instances_file:
+        if not os.path.isabs(instances_file):
+            instances_file = os.path.join(os.path.dirname(config_path), instances_file)
+        cfg["db_instances"] = load_db_instances(instances_file)
+    else:
+        cfg.setdefault("db_instances", [])
+
+    return cfg
 
 
-def get_password(instance_cfg: dict) -> str | None:
-    """Resolve password from environment variable."""
-    env_var = instance_cfg.get("password_env")
-    if env_var:
-        pw = os.environ.get(env_var)
+def load_db_instances(file_path: str) -> list[dict]:
+    """Parse the pipe-delimited DB instances file.
+
+    Format: environment|schema:DBNAME|host|port|schema|servicename|oraclehomepath
+    """
+    instances = []
+    with open(file_path) as f:
+        for line_no, raw_line in enumerate(f, 1):
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            parts = line.split("|")
+            if len(parts) != 7:
+                logger.warning("Skipping line %d in %s: expected 7 fields, got %d", line_no, file_path, len(parts))
+                continue
+            environment, schema_dbname, host, port, schema, service_name, oracle_home = parts
+            # schema:DBNAME → extract instance_name (DBNAME)
+            if ":" in schema_dbname:
+                _, instance_name = schema_dbname.split(":", 1)
+            else:
+                instance_name = schema_dbname
+            instances.append({
+                "instance_name": instance_name.strip(),
+                "db_type": "oracle",
+                "host": host.strip(),
+                "port": int(port.strip()),
+                "service_name": service_name.strip(),
+                "environment": environment.strip(),
+                "username": schema.strip(),
+                "oracle_home": oracle_home.strip(),
+            })
+    logger.info("Loaded %d DB instances from %s", len(instances), file_path)
+    return instances
+
+
+def get_password(instance_cfg: dict, password_script: str | None = None) -> str | None:
+    """Resolve password by calling the password script."""
+    if not password_script:
+        logger.warning("No password_script configured for %s", instance_cfg["instance_name"])
+        return None
+    return _run_password_script(password_script, instance_cfg)
+
+
+def _run_password_script(script_path: str, cfg: dict) -> str | None:
+    """Call an external script to retrieve the DB password.
+
+    The script is invoked as:
+        /path/to/script.sh <instance_name> <username>
+    and must print the password to stdout (first line).
+    """
+    instance_name = cfg["instance_name"]
+    cmd = [script_path, instance_name, cfg["username"]]
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode != 0:
+            logger.error(
+                "Password script failed for %s (exit %d): %s",
+                instance_name, result.returncode, result.stderr.strip(),
+            )
+            return None
+        pw = result.stdout.strip().split("\n")[0]  # first line only
         if not pw:
-            logger.warning("Environment variable %s not set for %s", env_var, instance_cfg["instance_name"])
+            logger.warning("Password script returned empty output for %s", instance_name)
+            return None
         return pw
-    return None
+    except FileNotFoundError:
+        logger.error("Password script not found: %s", script_path)
+        return None
+    except subprocess.TimeoutExpired:
+        logger.error("Password script timed out for %s", instance_name)
+        return None
+    except Exception:
+        logger.exception("Error running password script for %s", instance_name)
+        return None
 
 
-def connect_oracle(cfg: dict):
+def connect_oracle(cfg: dict, password_script: str | None = None):
     """Create an Oracle DB connection using oracledb (thin mode)."""
     try:
         import oracledb
@@ -52,26 +134,17 @@ def connect_oracle(cfg: dict):
         logger.error("oracledb not installed. Run: pip install oracledb")
         raise
 
-    password = get_password(cfg)
-    wallet_location = cfg.get("wallet_location")
+    password = get_password(cfg, password_script)
+    if not password:
+        raise ValueError(f"No password available for {cfg['instance_name']}")
 
-    connect_kwargs = {
-        "user": cfg["username"],
-        "host": cfg["host"],
-        "port": cfg["port"],
-        "service_name": cfg["service_name"],
-    }
-
-    if wallet_location:
-        # Oracle Wallet — no password needed
-        connect_kwargs["wallet_location"] = wallet_location
-        connect_kwargs["wallet_password"] = password  # wallet password if encrypted
-    else:
-        if not password:
-            raise ValueError(f"No password available for {cfg['instance_name']}. Set {cfg.get('password_env', '???')}")
-        connect_kwargs["password"] = password
-
-    return oracledb.connect(**connect_kwargs)
+    return oracledb.connect(
+        user=cfg["username"],
+        password=password,
+        host=cfg["host"],
+        port=cfg["port"],
+        service_name=cfg["service_name"],
+    )
 
 
 def collect_tablespaces(cursor) -> list[dict]:
@@ -260,11 +333,11 @@ def collect_slow_queries(cursor, limit: int = 10) -> list[dict]:
     ]
 
 
-def collect_instance_metrics(cfg: dict) -> dict | None:
+def collect_instance_metrics(cfg: dict, password_script: str | None = None) -> dict | None:
     """Connect to one Oracle instance and collect all metrics."""
     instance_name = cfg["instance_name"]
     try:
-        conn = connect_oracle(cfg)
+        conn = connect_oracle(cfg, password_script)
         cursor = conn.cursor()
 
         tablespaces = collect_tablespaces(cursor)
@@ -309,12 +382,13 @@ def send_payload(payload: dict, backend_url: str, api_key: str) -> bool:
 def run_once(config: dict):
     backend_url = config["backend_url"]
     api_key = config.get("api_key", "")
+    password_script = config.get("password_script")
     instances = config.get("db_instances", [])
 
     logger.info("Collecting DB metrics for %d instances", len(instances))
     success = 0
     for cfg in instances:
-        payload = collect_instance_metrics(cfg)
+        payload = collect_instance_metrics(cfg, password_script)
         if payload and send_payload(payload, backend_url, api_key):
             success += 1
     logger.info("Done: %d/%d successful", success, len(instances))

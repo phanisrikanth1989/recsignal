@@ -1,40 +1,18 @@
 # RecSignal DB Collector Configuration
 # -----------------------------------------------------------
-# Passwords are read from environment variables (never stored in files).
-# Set them on the host before starting the agent:
+# DB instances are defined in a pipe-delimited file:
+#   db_instances_file: config/db_instances.cfg
 #
-#   export RECSIGNAL_DB_ORCL_PROD1_PASSWORD="your_password"
-#   export RECSIGNAL_DB_ORCL_UAT1_PASSWORD="your_password"
+# Format per line:
+#   environment|schema:DBNAME|host|port|schema|servicename|oraclehomepath
 #
-# Or use Oracle Wallet for password-less authentication (preferred):
-#   wallet_location: /opt/oracle/wallet
-#
-# On systemd, add to the service file:
-#   Environment=RECSIGNAL_DB_ORCL_PROD1_PASSWORD=your_password
-# Or use EnvironmentFile= pointing to a root-only-readable file.
+# Password retrieval:
+#   password_script is called with 2 args: DBNAME and schema
+#   e.g.  /opt/recsignal/bin/get_db_password.sh ORCL_UAT1 recsignal_mon
 # -----------------------------------------------------------
 
 backend_url: "http://localhost:8000/api/db-monitor/metrics"
 api_key: "sample-secret-key"
 interval_seconds: 30
-
-db_instances:
-  - instance_name: ORCL_PROD1
-    db_type: oracle
-    host: db-prod-01.internal
-    port: 1521
-    service_name: orcl_prod1.svc
-    environment: prod
-    username: recsignal_mon
-    password_env: RECSIGNAL_DB_ORCL_PROD1_PASSWORD
-    # Alternative: Oracle Wallet (no password needed)
-    # wallet_location: /opt/oracle/wallet
-
-  - instance_name: ORCL_UAT1
-    db_type: oracle
-    host: db-uat-01.internal
-    port: 1521
-    service_name: orcl_uat1.svc
-    environment: uat
-    username: recsignal_mon
-    password_env: RECSIGNAL_DB_ORCL_UAT1_PASSWORD
+password_script: /opt/recsignal/bin/get_db_password.sh
+db_instances_file: config/db_instances.cfg
