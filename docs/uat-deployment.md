@@ -2,7 +2,7 @@
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         UAT CENTRAL SERVER                         │
 │                                                                     │
@@ -28,6 +28,7 @@
 ```
 
 **Components:**
+
 - **Central Server** — Runs Backend (FastAPI) + Frontend (static files) + Nginx reverse proxy
 - **4 UAT Servers** — Each runs the RecSignal agent that collects and pushes OS metrics
 - **Oracle Database** — Stores all metrics, alerts, DB monitoring data
@@ -36,13 +37,13 @@
 
 ## Prerequisites
 
-| Component        | Requirement                             |
-|------------------|-----------------------------------------|
-| Central Server   | Linux (RHEL/OEL 7+), Python 3.11+, Node.js 18+, Nginx |
-| UAT Servers (×4) | Linux (any), Python 3.11+, psutil      |
-| Oracle DB        | Oracle 12c+ with a dedicated schema     |
-| Network          | UAT servers → Central server (port 443 or 8000) |
-| SMTP             | Relay host for alert emails (optional)  |
+| Component | Requirement |
+| --- | --- |
+| Central Server | Linux (RHEL/OEL 7+), Python 3.11+, Node.js 18+, Nginx |
+| UAT Servers (x4) | Linux (any), Python 3.11+, psutil |
+| Oracle DB | Oracle 12c+ with a dedicated schema |
+| Network | UAT servers to Central server (port 443 or 8000) |
+| SMTP | Relay host for alert emails (optional) |
 
 ---
 
@@ -83,7 +84,8 @@ ORDER BY table_name;
 ```
 
 Expected output:
-```
+
+```text
 RECSIGNAL_ALERT_RULES
 RECSIGNAL_ALERTS
 RECSIGNAL_DB_INSTANCES
@@ -172,6 +174,7 @@ HISTORY_INTERVAL_SECONDS=300
 ```
 
 > **Generate strong keys:**
+>
 > ```bash
 > python3 -c "import secrets; print(secrets.token_urlsafe(32))"
 > ```
@@ -191,6 +194,7 @@ python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 Verify:
+
 ```bash
 curl http://127.0.0.1:8000/health
 # Expected: {"status":"ok"}
@@ -430,6 +434,7 @@ journalctl -u recsignal-agent -f
 ### 4.7 Verify Data in UI
 
 After all 4 agents are running:
+
 1. Open the RecSignal Dashboard
 2. Server Monitor tab should show 4 hosts
 3. Each host should show CPU, Memory, Disk metrics
@@ -449,19 +454,33 @@ Edit `/opt/recsignal-agent/config/db_config.yaml`:
 backend_url: "https://recsignal-uat.yourcompany.com/api/db-monitor/metrics"
 api_key: "<same_key_as_backend_AGENT_API_KEY>"
 interval_seconds: 30
-
-db_instances:
-  - instance_name: ORCL_UAT1
-    db_type: oracle
-    host: db-uat-01.internal
-    port: 1521
-    service_name: orcl_uat1.svc
-    environment: uat
-    username: recsignal_mon
-    password_env: RECSIGNAL_DB_ORCL_UAT1_PASSWORD
+password_script: /opt/recsignal-agent/bin/get_db_password.sh
+db_instances_file: config/db_instances.cfg
 ```
 
-### 5.2 Create Oracle Monitoring User (on DB server)
+Edit `/opt/recsignal-agent/config/db_instances.cfg`:
+
+```text
+# Format: environment|schema:DBNAME|host|port|schema|servicename|oraclehomepath
+UAT|recsignal_mon:ORCL_UAT1|db-uat-01.internal|1521|recsignal_mon|orcl_uat1.svc|/opt/oracle/product/19c/dbhome_1
+UAT|recsignal_mon:ORCL_UAT2|db-uat-02.internal|1521|recsignal_mon|orcl_uat2.svc|/opt/oracle/product/19c/dbhome_1
+```
+
+### 5.2 Set Up Password Script
+
+```bash
+# Copy and customize the password script
+cp /opt/recsignal-agent/scripts/get_db_password.sh /opt/recsignal-agent/bin/
+chmod 700 /opt/recsignal-agent/bin/get_db_password.sh
+
+# Edit with your credential-store logic (CyberArk, Vault, etc.)
+vi /opt/recsignal-agent/bin/get_db_password.sh
+
+# Test it manually
+/opt/recsignal-agent/bin/get_db_password.sh ORCL_UAT1 recsignal_mon
+```
+
+### 5.3 Create Oracle Monitoring User (on DB server)
 
 ```sql
 -- Connect as SYSDBA on each Oracle instance
@@ -484,18 +503,6 @@ GRANT SELECT ON dba_data_files TO recsignal_mon;
 GRANT SELECT ON dba_free_space TO recsignal_mon;
 ```
 
-### 5.3 Set Password Environment Variable
-
-```bash
-# On the server running db_agent.py
-export RECSIGNAL_DB_ORCL_UAT1_PASSWORD="<oracle_password>"
-
-# For systemd, add to service file or use EnvironmentFile:
-# EnvironmentFile=/opt/recsignal-agent/.db-env
-# Content of .db-env:
-# RECSIGNAL_DB_ORCL_UAT1_PASSWORD=<password>
-```
-
 ### 5.4 Create DB Agent Service
 
 Create `/etc/systemd/system/recsignal-db-agent.service`:
@@ -510,7 +517,6 @@ Type=simple
 User=recsignal
 Group=recsignal
 WorkingDirectory=/opt/recsignal-agent
-EnvironmentFile=/opt/recsignal-agent/.db-env
 ExecStart=/opt/recsignal-agent/venv/bin/python db_agent.py --loop --interval 30
 Restart=always
 RestartSec=30
@@ -523,10 +529,6 @@ WantedBy=multi-user.target
 ```
 
 ```bash
-sudo chmod 600 /opt/recsignal-agent/.db-env
-sudo chown recsignal:recsignal /opt/recsignal-agent/.db-env
-
-sudo systemctl daemon-reload
 sudo systemctl enable recsignal-db-agent
 sudo systemctl start recsignal-db-agent
 ```
