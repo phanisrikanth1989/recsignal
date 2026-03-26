@@ -7,8 +7,8 @@ import './index.css';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchInterval: 30_000,     // Poll every 30s for fresh data
-      staleTime: 10_000,
+      refetchInterval: 300_000,     // Poll every 5 min for fresh data
+      staleTime: 60_000,
       retry: 2,
     },
   },

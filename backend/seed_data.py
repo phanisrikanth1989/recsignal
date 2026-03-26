@@ -3,7 +3,6 @@ RecSignal – Comprehensive Data Seeder
 Populates SQLite with realistic dummy data for all modules:
   • Server Monitoring (hosts, metrics, mounts, processes, alerts)
   • DB Monitoring (instances, tablespaces, sessions, slow queries, performance)
-  • APM (transactions, traces/spans, baselines, anomalies, logs, topology, diagnostics)
 
 Usage:
     cd backend
@@ -13,7 +12,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import random
 import sys
 import uuid
@@ -154,6 +152,19 @@ def seed_hosts_and_metrics(s: Session) -> list:
                 cpu_percent=rand_float(0, 25),
                 memory_percent=rand_float(0.1, 8),
                 status="running",
+                collected_at=ts(0),
+            ))
+
+        # Zombie process snapshots (match zombie_count in latest metrics)
+        zombie_count = latest.zombie_count or 0
+        zombie_names = ["defunct-worker", "old-cron-job", "orphan-child", "stale-handler"]
+        for z in range(zombie_count):
+            s.add(ProcessSnapshot(
+                host_id=host.id, pid=random.randint(50001, 60000),
+                name=random.choice(zombie_names), username="root",
+                cpu_percent=0.0,
+                memory_percent=0.0,
+                status="zombie",
                 collected_at=ts(0),
             ))
 
@@ -319,300 +330,6 @@ def seed_db_monitoring(s: Session):
             ))
 
 
-# ── APM ──────────────────────────────────────────────────────────────
-
-APPS = ["order-service", "payment-service", "inventory-service", "user-service", "notification-service"]
-ENDPOINTS = {
-    "order-service": [("/api/orders", "POST"), ("/api/orders", "GET"), ("/api/orders/{id}", "GET"), ("/api/orders/{id}/cancel", "PUT")],
-    "payment-service": [("/api/payments", "POST"), ("/api/payments/{id}", "GET"), ("/api/refunds", "POST")],
-    "inventory-service": [("/api/inventory", "GET"), ("/api/inventory/{sku}", "GET"), ("/api/inventory/reserve", "POST")],
-    "user-service": [("/api/users", "GET"), ("/api/users/{id}", "GET"), ("/api/users/login", "POST"), ("/api/users/register", "POST")],
-    "notification-service": [("/api/notifications/send", "POST"), ("/api/notifications", "GET")],
-}
-
-LOG_MESSAGES = {
-    "INFO": [
-        "Request processed successfully",
-        "Cache hit for key={key}",
-        "Connection pool stats: active=5, idle=15",
-        "Scheduled job completed in {ms}ms",
-        "Health check passed",
-    ],
-    "WARN": [
-        "Slow query detected: {ms}ms",
-        "Connection pool exhaustion warning: 90% used",
-        "Retry attempt 2/3 for downstream call",
-        "Request latency above threshold: p99={ms}ms",
-        "Certificate expires in 14 days",
-    ],
-    "ERROR": [
-        "Failed to connect to downstream service: timeout after 5000ms",
-        "NullPointerException in OrderProcessor.process()",
-        "Database connection refused: max retries exceeded",
-        "Payment gateway returned HTTP 503",
-        "Unhandled exception in request handler",
-    ],
-    "DEBUG": [
-        "Entering method processOrder(id={id})",
-        "SQL: SELECT * FROM orders WHERE id = ?",
-        "HTTP response: status=200, body_size=1432",
-    ],
-}
-
-
-def seed_business_transactions(s: Session, hosts: list):
-    from app.models.business_transaction import BusinessTransaction
-
-    for _ in range(500):
-        app = random.choice(APPS)
-        endpoint, method = random.choice(ENDPOINTS[app])
-        is_error = random.random() < 0.08
-        status_code = random.choice([500, 502, 503, 504]) if is_error else random.choice([200, 200, 200, 201, 204])
-        s.add(BusinessTransaction(
-            host_id=random.choice(hosts[:7]).id,
-            app_name=app,
-            endpoint=endpoint,
-            method=method,
-            status_code=status_code,
-            response_time_ms=rand_float(5, 2000) if not is_error else rand_float(1000, 10000),
-            is_error=1 if is_error else 0,
-            error_message="Internal server error" if is_error else None,
-            trace_id=uid(),
-            user_id=f"user-{random.randint(1, 200)}",
-            collected_at=ts(random.randint(0, 1440)),
-        ))
-
-
-def seed_traces(s: Session):
-    from app.models.trace import Trace, Span
-
-    services_chain = [
-        ["order-service", "payment-service", "notification-service"],
-        ["order-service", "inventory-service"],
-        ["user-service", "notification-service"],
-        ["order-service", "payment-service", "inventory-service", "notification-service"],
-        ["user-service"],
-        ["payment-service", "inventory-service"],
-    ]
-
-    for _ in range(80):
-        trace_id = uuid.uuid4().hex
-        chain = random.choice(services_chain)
-        root = chain[0]
-        endpoint, method = random.choice(ENDPOINTS[root])
-        has_error = random.random() < 0.1
-        total_dur = rand_float(20, 3000)
-        started = ts(random.randint(0, 1440))
-
-        trace = Trace(
-            trace_id=trace_id,
-            root_service=root,
-            root_endpoint=endpoint,
-            root_method=method,
-            status_code=500 if has_error else 200,
-            total_duration_ms=total_dur,
-            span_count=len(chain),
-            has_error=1 if has_error else 0,
-            started_at=started,
-        )
-        s.add(trace)
-
-        parent_span_id = None
-        remaining_dur = total_dur
-        for i, svc in enumerate(chain):
-            span_id = uuid.uuid4().hex[:16]
-            ep, meth = random.choice(ENDPOINTS[svc])
-            dur = round(remaining_dur * rand_float(0.3, 0.8), 2) if i < len(chain) - 1 else remaining_dur
-
-            s.add(Span(
-                trace_id=trace_id,
-                span_id=span_id,
-                parent_span_id=parent_span_id,
-                service_name=svc,
-                operation_name=f"{meth} {ep}",
-                span_kind="server" if i == 0 else "client",
-                status="error" if has_error and i == len(chain) - 1 else "ok",
-                duration_ms=round(dur, 2),
-                started_at=started + timedelta(milliseconds=int(total_dur - remaining_dur)),
-                attributes=json.dumps({"http.method": meth, "http.url": ep}),
-            ))
-
-            parent_span_id = span_id
-            remaining_dur = round(remaining_dur - dur * rand_float(0.1, 0.3), 2)
-            if remaining_dur < 1:
-                remaining_dur = 1
-
-
-def seed_baselines_and_anomalies(s: Session, hosts: list):
-    from app.models.baseline import MetricBaseline, Anomaly
-
-    metrics = ["cpu_percent", "memory_percent", "swap_percent", "disk_percent_total", "load_avg_1m"]
-    means = {"cpu_percent": 45, "memory_percent": 55, "swap_percent": 10, "disk_percent_total": 50, "load_avg_1m": 1.5}
-    stddevs = {"cpu_percent": 15, "memory_percent": 12, "swap_percent": 5, "disk_percent_total": 8, "load_avg_1m": 0.8}
-
-    for host in hosts:
-        for metric in metrics:
-            mean = means[metric] + rand_float(-5, 5)
-            stddev = stddevs[metric] + rand_float(-2, 2)
-            s.add(MetricBaseline(
-                host_id=host.id,
-                metric_name=metric,
-                mean=mean,
-                stddev=max(stddev, 1),
-                min_val=max(mean - 3 * stddev, 0),
-                max_val=min(mean + 3 * stddev, 100),
-                sample_count=random.randint(200, 288),
-                window_hours=24,
-                computed_at=ts(0),
-            ))
-
-        # 1-3 anomalies per host
-        for _ in range(random.randint(1, 3)):
-            metric = random.choice(metrics)
-            mean = means[metric]
-            stddev = stddevs[metric]
-            sigma = rand_float(2.1, 5.0)
-            observed = round(mean + sigma * stddev, 2)
-            severity = "warning" if sigma < 3 else "critical"
-            is_resolved = random.random() < 0.3
-            detected = ts(random.randint(5, 720))
-            s.add(Anomaly(
-                host_id=host.id,
-                metric_name=metric,
-                observed_value=observed,
-                baseline_mean=mean,
-                baseline_stddev=stddev,
-                deviation_sigma=sigma,
-                severity=severity,
-                status="RESOLVED" if is_resolved else "OPEN",
-                detected_at=detected,
-                resolved_at=detected + timedelta(minutes=random.randint(5, 60)) if is_resolved else None,
-            ))
-
-
-def seed_logs(s: Session, hosts: list):
-    from app.models.log_entry import LogEntry
-
-    sources = ["app.order", "app.payment", "app.inventory", "app.user", "system.nginx", "system.cron"]
-    levels = ["INFO", "INFO", "INFO", "INFO", "WARN", "WARN", "ERROR", "DEBUG"]
-
-    for _ in range(600):
-        level = random.choice(levels)
-        templates = LOG_MESSAGES.get(level, LOG_MESSAGES["INFO"])
-        msg = random.choice(templates).format(
-            key=f"order-{random.randint(1000, 9999)}",
-            ms=random.randint(100, 5000),
-            id=random.randint(1, 10000),
-        )
-        host = random.choice(hosts[:7])
-        s.add(LogEntry(
-            host_id=host.id,
-            hostname=host.hostname,
-            source=random.choice(sources),
-            level=level,
-            message=msg,
-            trace_id=uid() if random.random() < 0.3 else None,
-            logged_at=ts(random.randint(0, 1440)),
-        ))
-
-
-def seed_topology(s: Session):
-    from app.models.service_topology import ServiceNode, ServiceDependency
-
-    service_defs = [
-        ("order-service", "service"),
-        ("payment-service", "service"),
-        ("inventory-service", "service"),
-        ("user-service", "service"),
-        ("notification-service", "service"),
-        ("postgres-db", "database"),
-        ("redis-cache", "cache"),
-        ("rabbitmq", "queue"),
-    ]
-
-    for svc_name, svc_type in service_defs:
-        s.add(ServiceNode(
-            service_name=svc_name,
-            service_type=svc_type,
-            status=random.choice(["healthy", "healthy", "healthy", "degraded"]),
-            avg_response_time_ms=rand_float(5, 500),
-            request_rate=rand_float(10, 2000),
-            error_rate=rand_float(0, 5),
-            last_seen_at=ts(random.randint(0, 5)),
-        ))
-
-    dependencies = [
-        ("order-service", "payment-service"),
-        ("order-service", "inventory-service"),
-        ("order-service", "postgres-db"),
-        ("order-service", "redis-cache"),
-        ("payment-service", "postgres-db"),
-        ("payment-service", "notification-service"),
-        ("payment-service", "rabbitmq"),
-        ("inventory-service", "postgres-db"),
-        ("inventory-service", "redis-cache"),
-        ("user-service", "postgres-db"),
-        ("user-service", "redis-cache"),
-        ("notification-service", "rabbitmq"),
-    ]
-
-    for src, tgt in dependencies:
-        s.add(ServiceDependency(
-            source_service=src,
-            target_service=tgt,
-            call_count=random.randint(500, 50000),
-            error_count=random.randint(0, 200),
-            avg_duration_ms=rand_float(2, 200),
-            last_seen_at=ts(random.randint(0, 10)),
-        ))
-
-
-def seed_diagnostics(s: Session, hosts: list):
-    from app.models.diagnostic import DiagnosticSnapshot
-
-    for _ in range(12):
-        app = random.choice(APPS)
-        snap_type = random.choice(["cpu_profile", "memory_profile", "thread_dump"])
-        host = random.choice(hosts[:7])
-
-        top_functions = json.dumps([
-            {"function": f"com.example.{app.replace('-', '.')}.Handler.process", "self_time_ms": rand_float(50, 500), "total_time_ms": rand_float(100, 800), "call_count": random.randint(100, 5000)},
-            {"function": f"com.example.{app.replace('-', '.')}.Repository.query", "self_time_ms": rand_float(20, 300), "total_time_ms": rand_float(50, 500), "call_count": random.randint(50, 2000)},
-            {"function": "java.net.SocketInputStream.read", "self_time_ms": rand_float(10, 200), "total_time_ms": rand_float(30, 400), "call_count": random.randint(200, 8000)},
-        ])
-
-        memory_summary = json.dumps({
-            "heap_used_mb": rand_float(256, 2048),
-            "heap_max_mb": 4096,
-            "gc_count": random.randint(50, 500),
-            "gc_time_ms": random.randint(500, 5000),
-            "top_allocations": [
-                {"class": "java.lang.String", "count": random.randint(10000, 100000), "size_mb": rand_float(10, 200)},
-                {"class": "byte[]", "count": random.randint(5000, 50000), "size_mb": rand_float(50, 500)},
-            ],
-        })
-
-        thread_dump = json.dumps({
-            "total_threads": random.randint(50, 200),
-            "runnable": random.randint(10, 50),
-            "waiting": random.randint(20, 100),
-            "blocked": random.randint(0, 10),
-            "deadlocked": 0,
-        })
-
-        s.add(DiagnosticSnapshot(
-            host_id=host.id,
-            app_name=app,
-            snapshot_type=snap_type,
-            duration_seconds=rand_float(5, 60),
-            top_functions=top_functions if snap_type == "cpu_profile" else None,
-            memory_summary=memory_summary if snap_type == "memory_profile" else None,
-            thread_dump=thread_dump if snap_type == "thread_dump" else None,
-            triggered_by="scheduled",
-            collected_at=ts(random.randint(0, 720)),
-        ))
-
-
 # ── Main ─────────────────────────────────────────────────────────────
 
 def seed_all():
@@ -641,24 +358,6 @@ def seed_all():
         print("Seeding DB monitoring...")
         seed_db_monitoring(s)
 
-        print("Seeding business transactions...")
-        seed_business_transactions(s, hosts)
-
-        print("Seeding traces & spans...")
-        seed_traces(s)
-
-        print("Seeding baselines & anomalies...")
-        seed_baselines_and_anomalies(s, hosts)
-
-        print("Seeding logs...")
-        seed_logs(s, hosts)
-
-        print("Seeding service topology...")
-        seed_topology(s)
-
-        print("Seeding diagnostics...")
-        seed_diagnostics(s, hosts)
-
         s.commit()
         print("Done! All dummy data seeded successfully.")
 
@@ -667,27 +366,12 @@ def seed_all():
         from app.models.metrics_history import MetricsHistory
         from app.models.alert import Alert
         from app.models.db_instance import DbInstance
-        from app.models.business_transaction import BusinessTransaction
-        from app.models.trace import Trace, Span
-        from app.models.baseline import MetricBaseline, Anomaly
-        from app.models.log_entry import LogEntry
-        from app.models.service_topology import ServiceNode, ServiceDependency
-        from app.models.diagnostic import DiagnosticSnapshot
 
         print(f"\n  Hosts:                {s.query(Host).count()}")
         print(f"  Metrics (latest):     {s.query(MetricsLatest).count()}")
         print(f"  Metrics (history):    {s.query(MetricsHistory).count()}")
         print(f"  Alerts:               {s.query(Alert).count()}")
         print(f"  DB Instances:         {s.query(DbInstance).count()}")
-        print(f"  Transactions:         {s.query(BusinessTransaction).count()}")
-        print(f"  Traces:               {s.query(Trace).count()}")
-        print(f"  Spans:                {s.query(Span).count()}")
-        print(f"  Baselines:            {s.query(MetricBaseline).count()}")
-        print(f"  Anomalies:            {s.query(Anomaly).count()}")
-        print(f"  Logs:                 {s.query(LogEntry).count()}")
-        print(f"  Service Nodes:        {s.query(ServiceNode).count()}")
-        print(f"  Service Dependencies: {s.query(ServiceDependency).count()}")
-        print(f"  Diagnostics:          {s.query(DiagnosticSnapshot).count()}")
 
 
 if __name__ == "__main__":

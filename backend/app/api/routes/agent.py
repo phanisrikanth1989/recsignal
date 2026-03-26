@@ -13,7 +13,6 @@ from app.services.metrics_service import (
 )
 from app.services.alert_service import evaluate_alerts, get_open_alerts_for_host
 from app.services.notification_service import send_alert_email
-from app.services.baseline_service import compute_baselines, detect_anomalies
 from app.utils.status import compute_host_status
 from app.utils.datetime_utils import is_stale
 from app.core.config import get_settings
@@ -49,18 +48,7 @@ def ingest_metrics(
     insert_mount_metrics(db, host.id, payload)
     insert_process_snapshots(db, host.id, payload)
 
-    # 4. Anomaly detection (baseline + deviation check)
-    compute_baselines(db, host.id)
-    current_metrics = {
-        "cpu_percent": payload.cpu_percent,
-        "memory_percent": payload.memory_percent,
-        "swap_percent": payload.swap_percent,
-        "disk_percent_total": payload.disk_percent_total,
-        "load_avg_1m": payload.load_avg_1m,
-    }
-    detect_anomalies(db, host.id, current_metrics)
-
-    # 5. Send emails for new alerts
+    # 4. Send emails for new alerts
     for alert in new_alerts:
         send_alert_email(db, alert, host)
 

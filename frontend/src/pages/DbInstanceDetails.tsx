@@ -1,8 +1,10 @@
 import { useParams, Link } from 'react-router-dom';
+import { useState } from 'react';
 import { useDbInstanceDetail } from '../hooks/useDbMonitor';
 import StatusBadge from '../components/status/StatusBadge';
 import MetricBar from '../components/charts/MetricBar';
 import GaugeChart from '../components/charts/GaugeChart';
+import SessionListModal from '../components/modals/SessionListModal';
 import { SkeletonCard } from '../components/utils/Skeleton';
 
 function formatUptime(seconds: number | null | undefined): string {
@@ -28,6 +30,7 @@ export default function DbInstanceDetails() {
   const { instanceId } = useParams();
   const id = instanceId ? parseInt(instanceId, 10) : null;
   const { data: instance, isLoading, error } = useDbInstanceDetail(id);
+  const [sessionModal, setSessionModal] = useState<'all' | 'ACTIVE' | 'INACTIVE' | null>(null);
 
   if (isLoading) {
     return (
@@ -158,23 +161,23 @@ export default function DbInstanceDetails() {
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-3">Sessions Overview</h2>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{sess.total}</div>
+              <button onClick={() => setSessionModal('all')} className="text-2xl font-bold text-gray-900 dark:text-gray-100 hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline cursor-pointer" title="View all sessions">{sess.total}</button>
               <div className="text-xs text-gray-500 dark:text-gray-400">Total</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{sess.active}</div>
+              <button onClick={() => setSessionModal('ACTIVE')} className="text-2xl font-bold text-green-600 dark:text-green-400 hover:underline cursor-pointer" title="View active sessions">{sess.active}</button>
               <div className="text-xs text-gray-500 dark:text-gray-400">Active</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-gray-500 dark:text-gray-400">{sess.inactive}</div>
+              <button onClick={() => setSessionModal('INACTIVE')} className="text-2xl font-bold text-gray-500 dark:text-gray-400 hover:underline cursor-pointer" title="View inactive sessions">{sess.inactive}</button>
               <div className="text-xs text-gray-500 dark:text-gray-400">Inactive</div>
             </div>
             <div>
-              <div className={`text-2xl font-bold ${sess.blocking_count > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`}>{sess.blocking_count}</div>
+              <button onClick={() => setSessionModal('all')} className={`text-2xl font-bold hover:underline cursor-pointer ${sess.blocking_count > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-500 dark:text-gray-400'}`} title="View sessions">{sess.blocking_count}</button>
               <div className="text-xs text-gray-500 dark:text-gray-400">Blocking</div>
             </div>
             <div>
-              <div className={`text-2xl font-bold ${sess.long_running_count > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}`}>{sess.long_running_count}</div>
+              <button onClick={() => setSessionModal('all')} className={`text-2xl font-bold hover:underline cursor-pointer ${sess.long_running_count > 0 ? 'text-yellow-600 dark:text-yellow-400' : 'text-gray-500 dark:text-gray-400'}`} title="View sessions">{sess.long_running_count}</button>
               <div className="text-xs text-gray-500 dark:text-gray-400">Long Running</div>
             </div>
           </div>
@@ -216,6 +219,16 @@ export default function DbInstanceDetails() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* Session List Modal */}
+      {sessionModal && id && (
+        <SessionListModal
+          instanceId={id}
+          instanceName={instance.instance_name}
+          filter={sessionModal}
+          onClose={() => setSessionModal(null)}
+        />
       )}
     </div>
   );

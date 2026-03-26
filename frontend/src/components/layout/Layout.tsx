@@ -1,6 +1,5 @@
 import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { useDashboard } from '../../hooks/useDashboard';
 
@@ -8,7 +7,6 @@ const navItems = [
   { path: '/dashboard', label: 'Dashboard', shortcut: 'd' },
   { path: '/hosts', label: 'Hosts', shortcut: 'h' },
   { path: '/db-instances', label: 'DB Instances', shortcut: 'b' },
-  { path: '/apm', label: 'APM', shortcut: 'p' },
   { path: '/alerts', label: 'Alerts', shortcut: 'a' },
 ];
 
@@ -19,14 +17,10 @@ function getParentRoute(pathname: string): string | null {
   if (/^\/hosts\/\d+/.test(pathname)) return '/hosts';
   // /db-instances/123 → /db-instances
   if (/^\/db-instances\/\d+/.test(pathname)) return '/db-instances';
-  // APM sub-routes → /apm
-  if (/^\/apm\/.+/.test(pathname)) return '/apm';
   // /hosts?status=xxx → /dashboard
   if (pathname === '/hosts') return '/dashboard';
   // /db-instances → /dashboard
   if (pathname === '/db-instances') return '/dashboard';
-  // /apm → /dashboard
-  if (pathname === '/apm') return '/dashboard';
   // /alerts → /dashboard
   if (pathname === '/alerts') return '/dashboard';
   return '/dashboard';
@@ -35,8 +29,7 @@ function getParentRoute(pathname: string): string | null {
 function getBackLabel(pathname: string): string {
   if (/^\/hosts\/\d+/.test(pathname)) return 'Back to Hosts';
   if (/^\/db-instances\/\d+/.test(pathname)) return 'Back to DB Instances';
-  if (/^\/apm\/.+/.test(pathname)) return 'Back to APM';
-  if (pathname === '/hosts' || pathname === '/alerts' || pathname === '/db-instances' || pathname === '/apm') return 'Back to Dashboard';
+  if (pathname === '/hosts' || pathname === '/alerts' || pathname === '/db-instances') return 'Back to Dashboard';
   return 'Back';
 }
 
@@ -64,7 +57,6 @@ function ThemeToggle() {
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
   const parentRoute = getParentRoute(location.pathname);
   const backLabel = getBackLabel(location.pathname);
   const { data: summary } = useDashboard();
@@ -82,7 +74,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         case 'd': navigate('/dashboard'); break;
         case 'h': navigate('/hosts'); break;
         case 'b': navigate('/db-instances'); break;
-        case 'p': navigate('/apm'); break;
         case 'a': navigate('/alerts'); break;
       }
     }
@@ -98,7 +89,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between h-16">
             <Link to="/dashboard" className="flex items-center space-x-2">
               <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">RecSignal</span>
-              <span className="text-sm text-gray-400 dark:text-gray-500">Application Performance Monitor</span>
+              <span className="text-sm text-gray-400 dark:text-gray-500">Server & Database Monitor</span>
             </Link>
             <nav className="flex items-center space-x-1">
               {navItems.map((item) => (
@@ -122,29 +113,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               ))}
 
               <ThemeToggle />
-
-              {/* User menu */}
-              {user && (
-                <div className="flex items-center ml-4 pl-4 border-l border-gray-200 dark:border-gray-600">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900 flex items-center justify-center">
-                      <span className="text-sm font-semibold text-indigo-700 dark:text-indigo-300">
-                        {user.display_name.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-                    <div className="hidden sm:block">
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-200 leading-none">{user.display_name}</p>
-                      <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{user.role}</p>
-                    </div>
-                    <button
-                      onClick={logout}
-                      className="ml-2 px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-red-900/30 rounded-md transition-colors"
-                    >
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              )}
             </nav>
           </div>
         </div>

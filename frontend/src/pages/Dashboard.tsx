@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import SummaryCard from '../components/cards/SummaryCard';
 import SeverityBadge from '../components/status/SeverityBadge';
@@ -123,6 +123,13 @@ function DbMonitorTab() {
   const { data: dbSummary, isLoading: summaryLoading } = useDbMonitorSummary();
   const { data: instances, isLoading: instancesLoading } = useDbInstances();
   const { data: details } = useDbDashboardDetails();
+  const [slowQueryFilter, setSlowQueryFilter] = useState<number | 'all'>('all');
+
+  const allSlowQueries = details?.top_slow_queries ?? [];
+  const slowQueries = useMemo(() => {
+    if (slowQueryFilter === 'all') return allSlowQueries;
+    return allSlowQueries.filter(q => q.db_instance_id === slowQueryFilter);
+  }, [allSlowQueries, slowQueryFilter]);
 
   if (summaryLoading || instancesLoading) {
     return (
@@ -133,7 +140,6 @@ function DbMonitorTab() {
   }
 
   const tsWarnings = details?.tablespace_warnings ?? [];
-  const slowQueries = details?.top_slow_queries ?? [];
   const blockingSessions = details?.blocking_sessions ?? [];
 
   return (
@@ -244,7 +250,16 @@ function DbMonitorTab() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Top Slow Queries</h2>
-          <span className="ml-auto text-xs text-gray-400 dark:text-gray-500">Across all instances</span>
+          <select
+            value={slowQueryFilter}
+            onChange={e => setSlowQueryFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+            className="ml-auto text-sm border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 px-2 py-1 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          >
+            <option value="all">All Instances</option>
+            {(instances ?? []).map(inst => (
+              <option key={inst.id} value={inst.id}>{inst.instance_name}</option>
+            ))}
+          </select>
         </div>
         <div className="p-4">
           {slowQueries.length === 0 ? (
@@ -287,57 +302,6 @@ function DbMonitorTab() {
           )}
         </div>
       </div>
-
-      {/* Instance List */}
-      {instances && instances.length > 0 ? (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100">Database Instances</h2>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-              <thead className="bg-gray-50 dark:bg-gray-900/50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Instance</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Host</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Environment</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Last Seen</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Details</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                {instances.map((inst) => (
-                  <tr key={inst.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-gray-100">{inst.instance_name}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400 uppercase">{inst.db_type}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{inst.host ?? '-'}:{inst.port ?? '-'}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">{inst.environment ?? '-'}</td>
-                    <td className="px-4 py-3"><StatusBadge status={inst.status} /></td>
-                    <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                      {inst.last_seen_at ? <TimeAgo timestamp={inst.last_seen_at} /> : '-'}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link to={`/db-instances/${inst.id}`} className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 text-sm font-medium">View</Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm p-12 text-center">
-          <svg className="w-16 h-16 mx-auto text-gray-300 dark:text-gray-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-          </svg>
-          <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-200 mb-2">No Database Instances</h2>
-          <p className="text-gray-500 dark:text-gray-400 text-sm max-w-md mx-auto">
-            No database instances have reported yet. Start the DB simulator or connect your Oracle agent to begin monitoring.
-          </p>
-        </div>
-      )}
     </>
   );
 }
