@@ -11,3 +11,11 @@ from app.models.tablespace_metric import TablespaceMetric  # noqa: F401
 from app.models.db_session_snapshot import DbSessionSnapshot  # noqa: F401
 from app.models.db_performance_metric import DbPerformanceMetric  # noqa: F401
 from app.models.db_slow_query import DbSlowQuery  # noqa: F401
+
+# Phase 3: APM models
+from app.models.business_transaction import BusinessTransaction  # noqa: F401
+from app.models.trace import Trace, Span  # noqa: F401
+from app.models.baseline import MetricBaseline, Anomaly  # noqa: F401
+from app.models.log_entry import LogEntry  # noqa: F401
+from app.models.service_topology import ServiceDependency, ServiceNode  # noqa: F401
+from app.models.diagnostic import DiagnosticSnapshot  # noqa: F401

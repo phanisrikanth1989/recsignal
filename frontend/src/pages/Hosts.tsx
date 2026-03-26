@@ -5,7 +5,6 @@ import StatusBadge from '../components/status/StatusBadge';
 import MetricBar from '../components/charts/MetricBar';
 import { SkeletonTable } from '../components/utils/Skeleton';
 import { TimeAgo } from '../components/utils/TimeAgo';
-import { useWebSocket } from '../hooks/useWebSocket';
 import type { HostListItem } from '../types/host';
 
 type SortKey = 'hostname' | 'cpu_percent' | 'memory_percent' | 'disk_percent_total' | 'status';
@@ -33,9 +32,6 @@ export default function Hosts() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('hostname');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-
-  // Live updates via WebSocket
-  useWebSocket(['hosts']);
 
   const allHosts = hosts || [];
 

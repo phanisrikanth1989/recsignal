@@ -2,14 +2,13 @@ import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
-import { useWebSocket } from '../../hooks/useWebSocket';
 import { useDashboard } from '../../hooks/useDashboard';
-import LiveIndicator from '../status/LiveIndicator';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', shortcut: 'd' },
   { path: '/hosts', label: 'Hosts', shortcut: 'h' },
   { path: '/db-instances', label: 'DB Instances', shortcut: 'b' },
+  { path: '/apm', label: 'APM', shortcut: 'p' },
   { path: '/alerts', label: 'Alerts', shortcut: 'a' },
 ];
 
@@ -20,10 +19,14 @@ function getParentRoute(pathname: string): string | null {
   if (/^\/hosts\/\d+/.test(pathname)) return '/hosts';
   // /db-instances/123 → /db-instances
   if (/^\/db-instances\/\d+/.test(pathname)) return '/db-instances';
+  // APM sub-routes → /apm
+  if (/^\/apm\/.+/.test(pathname)) return '/apm';
   // /hosts?status=xxx → /dashboard
   if (pathname === '/hosts') return '/dashboard';
   // /db-instances → /dashboard
   if (pathname === '/db-instances') return '/dashboard';
+  // /apm → /dashboard
+  if (pathname === '/apm') return '/dashboard';
   // /alerts → /dashboard
   if (pathname === '/alerts') return '/dashboard';
   return '/dashboard';
@@ -32,7 +35,8 @@ function getParentRoute(pathname: string): string | null {
 function getBackLabel(pathname: string): string {
   if (/^\/hosts\/\d+/.test(pathname)) return 'Back to Hosts';
   if (/^\/db-instances\/\d+/.test(pathname)) return 'Back to DB Instances';
-  if (pathname === '/hosts' || pathname === '/alerts' || pathname === '/db-instances') return 'Back to Dashboard';
+  if (/^\/apm\/.+/.test(pathname)) return 'Back to APM';
+  if (pathname === '/hosts' || pathname === '/alerts' || pathname === '/db-instances' || pathname === '/apm') return 'Back to Dashboard';
   return 'Back';
 }
 
@@ -63,7 +67,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const parentRoute = getParentRoute(location.pathname);
   const backLabel = getBackLabel(location.pathname);
-  const { connected } = useWebSocket([]);
   const { data: summary } = useDashboard();
   const alertCount = summary?.active_alerts ?? 0;
 
@@ -79,6 +82,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         case 'd': navigate('/dashboard'); break;
         case 'h': navigate('/hosts'); break;
         case 'b': navigate('/db-instances'); break;
+        case 'p': navigate('/apm'); break;
         case 'a': navigate('/alerts'); break;
       }
     }
@@ -94,8 +98,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="flex items-center justify-between h-16">
             <Link to="/dashboard" className="flex items-center space-x-2">
               <span className="text-xl font-bold text-indigo-600 dark:text-indigo-400">RecSignal</span>
-              <span className="text-sm text-gray-400 dark:text-gray-500">Server Monitor</span>
-              <LiveIndicator connected={connected} />
+              <span className="text-sm text-gray-400 dark:text-gray-500">Application Performance Monitor</span>
             </Link>
             <nav className="flex items-center space-x-1">
               {navItems.map((item) => (

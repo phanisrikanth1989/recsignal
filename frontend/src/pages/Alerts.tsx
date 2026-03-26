@@ -2,7 +2,6 @@ import { useAlerts } from '../hooks/useAlerts';
 import StatusBadge from '../components/status/StatusBadge';
 import SeverityBadge from '../components/status/SeverityBadge';
 import { useSearchParams } from 'react-router-dom';
-import { useWebSocket } from '../hooks/useWebSocket';
 import { TimeAgo } from '../components/utils/TimeAgo';
 import { SkeletonTable } from '../components/utils/Skeleton';
 import { useToast } from '../components/utils/ToastProvider';
@@ -29,15 +28,12 @@ export default function Alerts() {
   const { addToast } = useToast();
   const prevCountRef = useRef<number | null>(null);
 
-  // Live updates via WebSocket
-  useWebSocket(['alerts']);
-
   // Toast on new alerts
   const alertList = alerts || [];
   useEffect(() => {
     if (prevCountRef.current !== null && alertList.length > prevCountRef.current) {
       const diff = alertList.length - prevCountRef.current;
-      addToast(`${diff} new alert${diff > 1 ? 's' : ''} received`, 'warning');
+      addToast({ message: `${diff} new alert${diff > 1 ? 's' : ''} received`, severity: 'warning' });
     }
     prevCountRef.current = alertList.length;
   }, [alertList.length, addToast]);

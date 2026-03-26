@@ -32,7 +32,7 @@ export default function Login() {
             </svg>
           </div>
           <h1 className="text-3xl font-bold text-white">RecSignal</h1>
-          <p className="text-indigo-300 mt-1 text-sm">Unix Server Monitoring Platform</p>
+          <p className="text-indigo-300 mt-1 text-sm">Application Performance Monitor</p>
         </div>
 
         {/* SSO Login Card */}

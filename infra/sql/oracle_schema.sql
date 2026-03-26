@@ -285,3 +285,165 @@ CREATE TABLE recsignal_db_slow_queries (
 
 CREATE INDEX recsignal_idx_sq_inst ON recsignal_db_slow_queries(db_instance_id);
 CREATE INDEX recsignal_idx_sq_elapsed ON recsignal_db_slow_queries(elapsed_seconds DESC);
+
+
+-- ============================================================================
+-- Phase 3: APM (Application Performance Monitoring)
+-- ============================================================================
+
+-- 14. BUSINESS TRANSACTIONS
+CREATE TABLE recsignal_business_transactions (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host_id           NUMBER,
+    app_name          VARCHAR2(255) NOT NULL,
+    endpoint          VARCHAR2(512) NOT NULL,
+    method            VARCHAR2(10) NOT NULL,
+    status_code       NUMBER NOT NULL,
+    response_time_ms  NUMBER NOT NULL,
+    is_error          NUMBER DEFAULT 0,
+    error_message     CLOB,
+    trace_id          VARCHAR2(64),
+    user_id           VARCHAR2(255),
+    collected_at      TIMESTAMP NOT NULL,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_bt_app ON recsignal_business_transactions(app_name);
+CREATE INDEX recsignal_idx_bt_app_collected ON recsignal_business_transactions(app_name, collected_at);
+CREATE INDEX recsignal_idx_bt_trace ON recsignal_business_transactions(trace_id);
+
+-- 15. TRACES
+CREATE TABLE recsignal_traces (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    trace_id          VARCHAR2(64) NOT NULL UNIQUE,
+    root_service      VARCHAR2(255) NOT NULL,
+    root_endpoint     VARCHAR2(512),
+    root_method       VARCHAR2(10),
+    status_code       NUMBER,
+    total_duration_ms NUMBER NOT NULL,
+    span_count        NUMBER DEFAULT 1,
+    has_error         NUMBER DEFAULT 0,
+    started_at        TIMESTAMP NOT NULL,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_trace_svc ON recsignal_traces(root_service, started_at);
+
+-- 16. SPANS
+CREATE TABLE recsignal_spans (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    trace_id          VARCHAR2(64) NOT NULL,
+    span_id           VARCHAR2(64) NOT NULL UNIQUE,
+    parent_span_id    VARCHAR2(64),
+    service_name      VARCHAR2(255) NOT NULL,
+    operation_name    VARCHAR2(512) NOT NULL,
+    span_kind         VARCHAR2(20) DEFAULT 'internal',
+    status            VARCHAR2(20) DEFAULT 'ok',
+    duration_ms       NUMBER NOT NULL,
+    started_at        TIMESTAMP NOT NULL,
+    attributes        CLOB,
+    events            CLOB,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_span_trace ON recsignal_spans(trace_id);
+CREATE INDEX recsignal_idx_span_trace_parent ON recsignal_spans(trace_id, parent_span_id);
+
+-- 17. METRIC BASELINES
+CREATE TABLE recsignal_metric_baselines (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host_id           NUMBER NOT NULL,
+    metric_name       VARCHAR2(64) NOT NULL,
+    mean              NUMBER NOT NULL,
+    stddev            NUMBER NOT NULL,
+    min_val           NUMBER NOT NULL,
+    max_val           NUMBER NOT NULL,
+    sample_count      NUMBER NOT NULL,
+    window_hours      NUMBER DEFAULT 24,
+    computed_at       TIMESTAMP NOT NULL,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT recsignal_uq_baseline UNIQUE (host_id, metric_name)
+);
+
+-- 18. ANOMALIES
+CREATE TABLE recsignal_anomalies (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host_id           NUMBER NOT NULL,
+    metric_name       VARCHAR2(64) NOT NULL,
+    observed_value    NUMBER NOT NULL,
+    baseline_mean     NUMBER NOT NULL,
+    baseline_stddev   NUMBER NOT NULL,
+    deviation_sigma   NUMBER NOT NULL,
+    severity          VARCHAR2(20) NOT NULL,
+    status            VARCHAR2(20) DEFAULT 'OPEN',
+    detected_at       TIMESTAMP NOT NULL,
+    resolved_at       TIMESTAMP,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_anomaly_host ON recsignal_anomalies(host_id);
+CREATE INDEX recsignal_idx_anomaly_status ON recsignal_anomalies(host_id, status);
+
+-- 19. LOG ENTRIES
+CREATE TABLE recsignal_logs (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host_id           NUMBER NOT NULL,
+    hostname          VARCHAR2(255) NOT NULL,
+    source            VARCHAR2(255) NOT NULL,
+    level             VARCHAR2(20) NOT NULL,
+    message           CLOB NOT NULL,
+    trace_id          VARCHAR2(64),
+    logged_at         TIMESTAMP NOT NULL,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_log_host ON recsignal_logs(host_id, logged_at);
+CREATE INDEX recsignal_idx_log_level ON recsignal_logs(level, logged_at);
+CREATE INDEX recsignal_idx_log_trace ON recsignal_logs(trace_id);
+
+-- 20. SERVICE NODES (topology)
+CREATE TABLE recsignal_service_nodes (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    service_name      VARCHAR2(255) NOT NULL UNIQUE,
+    service_type      VARCHAR2(50) DEFAULT 'service',
+    host_id           NUMBER,
+    status            VARCHAR2(20) DEFAULT 'healthy',
+    avg_response_time_ms NUMBER,
+    request_rate      NUMBER,
+    error_rate        NUMBER,
+    last_seen_at      TIMESTAMP,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+-- 21. SERVICE DEPENDENCIES (topology edges)
+CREATE TABLE recsignal_service_dependencies (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    source_service    VARCHAR2(255) NOT NULL,
+    target_service    VARCHAR2(255) NOT NULL,
+    call_count        NUMBER DEFAULT 0,
+    error_count       NUMBER DEFAULT 0,
+    avg_duration_ms   NUMBER,
+    last_seen_at      TIMESTAMP NOT NULL,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    updated_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+    CONSTRAINT recsignal_uq_svc_dep UNIQUE (source_service, target_service)
+);
+
+-- 22. DIAGNOSTIC SNAPSHOTS
+CREATE TABLE recsignal_diagnostic_snapshots (
+    id                NUMBER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    host_id           NUMBER,
+    app_name          VARCHAR2(255) NOT NULL,
+    snapshot_type     VARCHAR2(50) NOT NULL,
+    duration_seconds  NUMBER,
+    top_functions     CLOB,
+    memory_summary    CLOB,
+    thread_dump       CLOB,
+    triggered_by      VARCHAR2(255),
+    collected_at      TIMESTAMP NOT NULL,
+    created_at        TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL
+);
+
+CREATE INDEX recsignal_idx_diag_app ON recsignal_diagnostic_snapshots(app_name);
+CREATE INDEX recsignal_idx_diag_host ON recsignal_diagnostic_snapshots(host_id);

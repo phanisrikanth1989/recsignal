@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useHostDetails } from '../hooks/useHostDetails';
 import StatusBadge from '../components/status/StatusBadge';
 import SeverityBadge from '../components/status/SeverityBadge';
@@ -9,7 +9,6 @@ import GaugeChart from '../components/charts/GaugeChart';
 import MetricLineChart from '../components/charts/MetricLineChart';
 import { TimeAgo } from '../components/utils/TimeAgo';
 import { SkeletonChart, SkeletonCard } from '../components/utils/Skeleton';
-import { useWebSocket } from '../hooks/useWebSocket';
 
 function formatTime(ts: string | null | undefined): string {
   if (!ts) return '-';
@@ -43,10 +42,6 @@ export default function HostDetails() {
   const id = Number(hostId);
   const { data: host, isLoading, error } = useHostDetails(id);
   const [processModal, setProcessModal] = useState<'all' | 'zombie' | null>(null);
-
-  // Live updates via WebSocket for this specific host
-  const wsTopics = useMemo(() => [`host:${id}`, 'alerts'], [id]);
-  useWebSocket(wsTopics);
 
   if (isLoading) return (
     <div>

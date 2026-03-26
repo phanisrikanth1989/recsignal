@@ -4,7 +4,6 @@ import { useDbInstances } from '../hooks/useDbMonitor';
 import StatusBadge from '../components/status/StatusBadge';
 import { SkeletonTable } from '../components/utils/Skeleton';
 import { TimeAgo } from '../components/utils/TimeAgo';
-import { useWebSocket } from '../hooks/useWebSocket';
 import type { DbInstanceListItem } from '../types/db_monitor';
 
 type SortKey = 'instance_name' | 'db_type' | 'host' | 'environment' | 'status';
@@ -32,9 +31,6 @@ export default function DbInstances() {
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey>('instance_name');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
-
-  // Live updates via WebSocket
-  useWebSocket(['db-instances']);
 
   const allInstances = instances || [];
 

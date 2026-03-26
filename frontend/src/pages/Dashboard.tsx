@@ -10,7 +10,6 @@ import HostHeatmap from '../components/charts/HostHeatmap';
 import { useDashboard } from '../hooks/useDashboard';
 import { useAlerts } from '../hooks/useAlerts';
 import { useHosts } from '../hooks/useHosts';
-import { useWebSocket } from '../hooks/useWebSocket';
 import { useDbMonitorSummary, useDbInstances, useDbDashboardDetails } from '../hooks/useDbMonitor';
 
 const tabs = [
@@ -25,9 +24,6 @@ export default function Dashboard() {
   const { data: summary, isLoading: summaryLoading, error: summaryError } = useDashboard();
   const { data: alerts } = useAlerts('OPEN');
   const { data: hosts } = useHosts();
-
-  // Live updates via WebSocket
-  useWebSocket(['dashboard', 'alerts']);
 
   if (summaryLoading) {
     return (
@@ -127,9 +123,6 @@ function DbMonitorTab() {
   const { data: dbSummary, isLoading: summaryLoading } = useDbMonitorSummary();
   const { data: instances, isLoading: instancesLoading } = useDbInstances();
   const { data: details } = useDbDashboardDetails();
-
-  // Live updates via WebSocket
-  useWebSocket(['db-monitor-summary', 'db-instances']);
 
   if (summaryLoading || instancesLoading) {
     return (
