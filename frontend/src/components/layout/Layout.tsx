@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTheme } from '../../context/ThemeContext';
-import { useDashboard } from '../../hooks/useDashboard';
+
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', shortcut: 'd' },
@@ -59,10 +59,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const navigate = useNavigate();
   const parentRoute = getParentRoute(location.pathname);
   const backLabel = getBackLabel(location.pathname);
-  const { data: summary } = useDashboard();
-  const alertCount = summary?.active_alerts ?? 0;
-
-  // Keyboard shortcuts: d=dashboard, h=hosts, a=alerts
+  // Keyboard shortcuts: d=dashboard, h=hosts, b=db-instances
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       // Ignore when user is typing in an input/textarea
@@ -104,11 +101,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                   title={`${item.label} (${item.shortcut})`}
                 >
                   {item.label}
-                  {item.path === '/alerts' && alertCount > 0 && (
-                    <span className="absolute -top-1 -right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-red-500 rounded-full">
-                      {alertCount > 99 ? '99+' : alertCount}
-                    </span>
-                  )}
                 </Link>
               ))}
 

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import Dashboard from '../pages/Dashboard';
 import Hosts from '../pages/Hosts';
 import HostDetails from '../pages/HostDetails';
+
 import Alerts from '../pages/Alerts';
 import DbInstances from '../pages/DbInstances';
 import DbInstanceDetails from '../pages/DbInstanceDetails';

@@ -4,8 +4,6 @@ import SeverityBadge from '../components/status/SeverityBadge';
 import { useSearchParams } from 'react-router-dom';
 import { TimeAgo } from '../components/utils/TimeAgo';
 import { SkeletonTable } from '../components/utils/Skeleton';
-import { useToast } from '../components/utils/ToastProvider';
-import { useEffect, useRef } from 'react';
 import type { AlertListItem } from '../types/alert';
 
 function exportAlertCSV(alerts: AlertListItem[]) {
@@ -25,18 +23,7 @@ export default function Alerts() {
   const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status') || undefined;
   const { data: alerts, isLoading, error } = useAlerts(statusFilter);
-  const { addToast } = useToast();
-  const prevCountRef = useRef<number | null>(null);
-
-  // Toast on new alerts
   const alertList = alerts || [];
-  useEffect(() => {
-    if (prevCountRef.current !== null && alertList.length > prevCountRef.current) {
-      const diff = alertList.length - prevCountRef.current;
-      addToast({ message: `${diff} new alert${diff > 1 ? 's' : ''} received`, severity: 'warning' });
-    }
-    prevCountRef.current = alertList.length;
-  }, [alertList.length, addToast]);
 
   const setFilter = (val: string | undefined) => {
     if (val) {
