@@ -42,6 +42,16 @@ def load_config(config_path: str | None = None) -> dict:
     else:
         cfg.setdefault("db_instances", [])
 
+    # Filter instances by environment if specified in config
+    env_filter = cfg.get("environment")
+    if env_filter and cfg["db_instances"]:
+        all_count = len(cfg["db_instances"])
+        cfg["db_instances"] = [
+            inst for inst in cfg["db_instances"]
+            if inst["environment"].upper() == env_filter.upper()
+        ]
+        logger.info("Filtered DB instances by environment=%s: %d/%d", env_filter, len(cfg["db_instances"]), all_count)
+
     return cfg
 
 

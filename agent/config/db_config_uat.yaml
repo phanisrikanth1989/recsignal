@@ -1,0 +1,12 @@
+# RecSignal DB Collector Configuration — UAT
+# -----------------------------------------------------------
+# DB instances are defined in a pipe-delimited file.
+# Only instances matching environment "UAT" will be collected.
+# -----------------------------------------------------------
+
+backend_url: "http://localhost:8000/api/db-monitor/metrics"
+api_key: "sample-secret-key"
+environment: "UAT"
+interval_seconds: 30
+password_script: /opt/rectify/control/scripts/get_password.sh
+db_instances_file: /opt/rectify/talend/common/tns_db_env.properties

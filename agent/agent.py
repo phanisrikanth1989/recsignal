@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 
 import yaml
 
+import argparse
+
 from collectors.system_metrics import collect_all
 from services.http_client import send_metrics
 from services.retry_service import retry
@@ -42,7 +44,11 @@ def setup_logging(log_file: str | None = None) -> None:
 
 
 def main():
-    config = load_config()
+    parser = argparse.ArgumentParser(description="RecSignal Unix Server Monitoring Agent")
+    parser.add_argument("--config", default=None, help="Path to config.yaml (e.g. config/config_uat.yaml)")
+    args = parser.parse_args()
+
+    config = load_config(args.config)
     setup_logging(config.get("log_file"))
 
     backend_url = config["backend_url"]

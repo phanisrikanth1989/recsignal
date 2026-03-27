@@ -1,8 +1,8 @@
-# RecSignal Agent Configuration
+# RecSignal Agent Configuration — UAT
 backend_url: "http://localhost:8000/api/agent/metrics"
 api_key: "sample-secret-key"
 environment: "UAT"
-interval_seconds: 10  # 10 seconds (live monitoring)
+interval_seconds: 10
 mounts_include:
   - /dev
   - /dev/shm
